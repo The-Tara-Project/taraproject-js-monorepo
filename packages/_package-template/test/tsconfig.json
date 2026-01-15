@@ -1,0 +1,20 @@
+{
+    "extends": "../tsconfig.json",
+    "compilerOptions": {
+        // Allow dev + test files outside src/
+        "rootDir": "..",
+        // Dev scripts are never emitted anyway (tsx / noEmit),
+        // but this avoids accidental output if someone runs tsc.
+        "noEmit": true
+    },
+    "include": [
+        "../src/**/*",
+        "src/**/*",
+        "dev/**/*",
+    ],
+    "exclude": [
+        // Keep real tests out of the dev TS program
+        "test/**/*.spec.ts",
+        "test/**/*.test.ts"
+    ]
+}
