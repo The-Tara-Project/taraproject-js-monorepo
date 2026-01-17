@@ -2,15 +2,24 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-// Built-in registry mapping internal keys to source aliases
-const SETTING_REGISTRY: Record<string, string[]> = {
-    taraHome: ['taraHome', 'TARA_HOME', 'TARAPROJECT_HOME'],
-    debug: ['debug', 'DEBUG', 'TARA_DEBUG'],
-    logLevel: ['logLevel', 'LOG_LEVEL', 'TARA_LOG_LEVEL'],
-};
+type SettingSource = 'env' | 'project' | 'global';
 
+// Built-in registry mapping internal keys to source aliases
+const SETTING_REGISTRY: Record<string, {
+    aliases: string[]
+    sources?: SettingSource[]
+}> = {
+    debug: {
+        aliases: ['debug', 'DEBUG', 'TARA_DEBUG'],
+        sources: ['project', 'env', 'global'],
+    },
+    logLevel: {
+        aliases: ['logLevel', 'LOG_LEVEL', 'TARA_LOG_LEVEL'],
+    },
+};
 // Priority order for source resolution
-const SOURCES_PRIORITY: Array<'env' | 'project' | 'global'> = ['env', 'project', 'global'];
+
+const SOURCES_PRIORITY: Array<SettingSource> = ['env', 'project', 'global'];
 
 // Internal state (module-scoped)
 let settingsState: {
@@ -87,23 +96,27 @@ export function getRawValue(key: string, source: 'env' | 'project' | 'global'): 
  * Returns defaultValue if not found.
  *
  * Resolution order:
- * 1. Look up aliases for the key in SETTING_REGISTRY (if not found, use [key] as single alias)
- * 2. For each alias, search across all sources (priority: env > project > global)
- * 3. Return default value if provided, otherwise undefined
+ * 1. Look up entry for key in SETTING_REGISTRY (if not found, use [key] as single alias)
+ * 2. Use custom source priority from registry entry, or default: env > project > global
+ * 3. For each alias, search across sources in priority order
+ * 4. Return default value if provided, otherwise undefined
  *
  * Priority is by alias first, then by source. First alias match wins.
+ * Per-key source overrides allow setting-specific source precedence.
  *
  * @param key - The setting key to retrieve
  * @param defaultValue - Optional default value if setting is not found
  * @returns The resolved setting value, default value, or undefined
  */
 export function getSetting(key: string, defaultValue?: any): any {
-    // 1. Get aliases for this key (or use key itself as single alias)
-    const aliases = SETTING_REGISTRY[key] || [key];
+    // 1. Get aliases and source priority for this key
+    const entry = SETTING_REGISTRY[key];
+    const aliases = entry?.aliases || [key];
+    const sources = entry?.sources || SOURCES_PRIORITY;
 
     // 2. Search all aliases across all sources (aliases first, then sources)
     for (const alias of aliases) {
-        for (const source of SOURCES_PRIORITY) {
+        for (const source of sources) {
             const value = getRawValue(alias, source);
             if (value !== undefined) {
                 return value;

@@ -267,6 +267,65 @@ describe('Settings System', () => {
             // CUSTOM_KEY has no aliases in registry
             expect(getSetting('CUSTOM_KEY')).toBe('custom-value');
         });
+
+        it('should respect per-key source priority overrides', () => {
+            // debug has custom sources: ['project', 'env', 'global']
+            // This means project is checked BEFORE env
+
+            process.env.DEBUG = 'env-value';
+            fs.writeFileSync(
+                path.join(testDir, 'taraproject.json'),
+                JSON.stringify({ debug: 'project-value' })
+            );
+
+            const globalDir = path.join(os.homedir(), '.taraproject');
+            if (!fs.existsSync(globalDir)) {
+                fs.mkdirSync(globalDir, { recursive: true });
+            }
+            fs.writeFileSync(
+                path.join(globalDir, 'config.json'),
+                JSON.stringify({ DEBUG: 'global-value' })
+            );
+
+            refreshSettings(testDir);
+
+            // Project source should win (checked first), not ENV
+            expect(getSetting('debug')).toBe('project-value');
+        });
+
+        it('should fall through source priority when earlier source missing', () => {
+            // debug has custom sources: ['project', 'env', 'global']
+            // Only ENV is set
+            process.env.TARA_DEBUG = 'env-value';
+
+            const globalDir = path.join(os.homedir(), '.taraproject');
+            if (!fs.existsSync(globalDir)) {
+                fs.mkdirSync(globalDir, { recursive: true });
+            }
+            fs.writeFileSync(
+                path.join(globalDir, 'config.json'),
+                JSON.stringify({ DEBUG: 'global-value' })
+            );
+
+            refreshSettings(testDir);
+
+            // Project is checked first but empty, so check ENV for TARA_DEBUG alias
+            expect(getSetting('debug')).toBe('env-value');
+        });
+
+        it('should use default source priority when no override specified', () => {
+            // logLevel has no sources override, uses default: env > project > global
+            process.env.LOG_LEVEL = 'env-level';
+            fs.writeFileSync(
+                path.join(testDir, 'taraproject.json'),
+                JSON.stringify({ logLevel: 'project-level' })
+            );
+
+            refreshSettings(testDir);
+
+            // ENV should win (default priority)
+            expect(getSetting('logLevel')).toBe('env-level');
+        });
     });
 
     describe('getRawValue', () => {

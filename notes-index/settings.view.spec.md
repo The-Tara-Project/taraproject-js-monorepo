@@ -17,27 +17,42 @@ with alias mapping and priority-based resolution at query time.
 
 ```
 getSetting(key) →
-  1. Lookup aliases for key in registry (if not found, use [key] as single alias)
-  2. For each alias:
-       For each source (env → project → global):
+  1. Lookup registry entry for key
+  2. Get aliases array from entry (or use [key] if not in registry)
+  3. Get sources array from entry (or use global SOURCES_PRIORITY if not defined)
+  4. For each alias:
+       For each source (in priority order):
          If found, return value
-  3. Return default or undefined
+  5. Return default or undefined
 ```
 
-Priority is by **alias first**, then by source. First alias match wins.
+Priority is by **alias first**, then by **source** (in configured order). First alias match wins.
 
-**Note**: There is no fallback raw key search. If users need a key not in the registry, they can add it as a self-mapping: `myKey: ['myKey']`.
+**Note**: There is no fallback raw key search. If users need a key not in the registry, they can add it as a self-mapping: `myKey: { aliases: ['myKey'] }`.
 
-## Alias System
+## Registry System
 
-Multiple source names map to one canonical internal key:
+Settings are defined in `SETTING_REGISTRY`, a hardcoded mapping of setting keys to configuration objects.
 
+### Alias System
+
+Each registry entry has an `aliases` array mapping multiple source names to one canonical key:
+
+```typescript
+debug: {
+  aliases: ['debug', 'DEBUG', 'TARA_DEBUG'],
+  sources: ['project', 'env', 'global'],  // optional
+}
 ```
-taraHome → ['taraHome', 'TARA_HOME', 'TARAPROJECT_HOME']
-debug → ['debug', 'DEBUG', 'TARA_DEBUG']
-```
 
-Registry is hardcoded in `SETTING_REGISTRY` constant.
+### Per-Key Source Priority (Optional)
+
+Each registry entry can optionally define `sources`, allowing custom source precedence per setting:
+
+- **Without `sources` override**: Uses global `SOURCES_PRIORITY` order (env > project > global)
+- **With `sources` override**: Uses custom order defined in registry entry
+
+Example: `debug` setting can be configured to check project first, then env, then global—allowing projects to set defaults that ENV can still override but won't always win.
 
 ## API Operations
 
@@ -69,29 +84,26 @@ Registry is hardcoded in `SETTING_REGISTRY` constant.
 
 ```javascript
 // ENV: TARA_DEBUG=verbose
-// taraproject.json: { "logLevel": "info" }
+// taraproject.json: { "logLevel": "info", "debug": "project-value" }
 // ~/.taraproject/config.json: { "taraHome": "/global/home", "debug": "quiet" }
 
 refreshSettings();
 
-// Registry has: taraHome: ['taraHome', 'TARA_HOME', 'TARAPROJECT_HOME']
-// Checks first alias 'taraHome' across all sources (env, project, global)
-// env.taraHome → not found, project.taraHome → not found, global.taraHome → found!
+// Registry: taraHome (no sources override) uses default: env > project > global
+// First alias 'taraHome' → env ✗, project ✗, global ✓
 getSetting('taraHome')   // → '/global/home'
 
-// Registry has: debug: ['debug', 'DEBUG', 'TARA_DEBUG']
-// Checks first alias 'debug' across all sources
-// env.debug → not found, project.debug → not found, global.debug → found!
-// Returns 'quiet' even though TARA_DEBUG is set in ENV!
-// This is because first alias 'debug' is found in global before checking 'TARA_DEBUG' alias
-getSetting('debug')      // → 'quiet' (first alias wins, not first source!)
+// Registry: debug has custom sources: ['project', 'env', 'global']
+// First alias 'debug' → project ✓ (stops here, found!)
+getSetting('debug')      // → 'project-value' (project checked first!)
+// Even though TARA_DEBUG='verbose' is in ENV, project source checked first
 
-// 'logLevel' registry: ['logLevel', 'LOG_LEVEL', 'TARA_LOG_LEVEL']
-// First alias 'logLevel': env.logLevel → not found, project.logLevel → found!
+// 'logLevel' (no sources override) uses default: env > project > global
+// First alias 'logLevel' → env ✗, project ✓
 getSetting('logLevel')   // → 'info'
 
-// Not in registry, uses ['missing'] as single alias
+// Not in registry, uses [key] as single alias with default source order
 getSetting('missing', 0) // → 0 (default)
 ```
 
-**Important**: With "alias first" resolution, a higher-priority alias in a lower-priority source will win over a lower-priority alias in a higher-priority source. This is different from typical environment variable precedence where ENV always wins.
+**Key Insight**: Per-key source overrides allow fine-grained control over precedence. For example, `debug` can prefer project configuration while most other settings follow the default env > project > global order.
