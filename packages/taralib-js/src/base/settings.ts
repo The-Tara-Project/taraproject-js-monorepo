@@ -87,22 +87,23 @@ export function getRawValue(key: string, source: 'env' | 'project' | 'global'): 
  * Returns defaultValue if not found.
  *
  * Resolution order:
- * 1. Look up aliases for the key in SETTING_REGISTRY
- * 2. Search all aliases across all sources (priority: env > project > global)
- * 3. If not found, search raw key as-is across all sources
- * 4. Return default value if provided, otherwise undefined
+ * 1. Look up aliases for the key in SETTING_REGISTRY (if not found, use [key] as single alias)
+ * 2. For each alias, search across all sources (priority: env > project > global)
+ * 3. Return default value if provided, otherwise undefined
+ *
+ * Priority is by alias first, then by source. First alias match wins.
  *
  * @param key - The setting key to retrieve
  * @param defaultValue - Optional default value if setting is not found
  * @returns The resolved setting value, default value, or undefined
  */
 export function getSetting(key: string, defaultValue?: any): any {
-    // 1. Get aliases for this key (or use key itself)
+    // 1. Get aliases for this key (or use key itself as single alias)
     const aliases = SETTING_REGISTRY[key] || [key];
 
-    // 2. Search all aliases across all sources (priority order)
-    for (const source of SOURCES_PRIORITY) {
-        for (const alias of aliases) {
+    // 2. Search all aliases across all sources (aliases first, then sources)
+    for (const alias of aliases) {
+        for (const source of SOURCES_PRIORITY) {
             const value = getRawValue(alias, source);
             if (value !== undefined) {
                 return value;
@@ -110,15 +111,7 @@ export function getSetting(key: string, defaultValue?: any): any {
         }
     }
 
-    // 3. Fallback: search raw key as-is (no alias)
-    for (const source of SOURCES_PRIORITY) {
-        const value = getRawValue(key, source);
-        if (value !== undefined) {
-            return value;
-        }
-    }
-
-    // 4. Return default or undefined
+    // 3. Return default or undefined
     return defaultValue;
 }
 
