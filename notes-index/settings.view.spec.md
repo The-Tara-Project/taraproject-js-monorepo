@@ -44,6 +44,7 @@ Registry is hardcoded in `SETTING_REGISTRY` constant.
 - `getSetting(key, default?)` - Resolve value through cascade
 - `getRawValue(key, source)` - Direct source access without resolution
 - `isLoaded()` - Check if settings loaded
+- `resetSettings()` - Reset to initial state (internal, for testing)
 
 ## Config File Format
 
