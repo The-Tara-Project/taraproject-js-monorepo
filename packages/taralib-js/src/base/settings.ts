@@ -6,7 +6,7 @@ type SettingSource = 'env' | 'project' | 'global';
 
 // Built-in registry mapping internal keys to source aliases
 const SETTING_REGISTRY: Record<string, {
-    aliases: string[]
+    aliases?: string[]
     sources?: SettingSource[]
 }> = {
     debug: {
@@ -110,7 +110,7 @@ export function getRawValue(key: string, source: 'env' | 'project' | 'global'): 
  */
 export function getSetting(key: string, defaultValue?: any): any {
     // 1. Get aliases and source priority for this key
-    const entry = SETTING_REGISTRY[key];
+    const entry = SETTING_REGISTRY?.[key];
     const aliases = entry?.aliases || [key];
     const sources = entry?.sources || SOURCES_PRIORITY;
 

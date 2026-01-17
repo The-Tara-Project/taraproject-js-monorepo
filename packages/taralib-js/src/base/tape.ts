@@ -2,8 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
 import { ensureTaraHome, getTapesFolderPath } from './home';
-import { createRecord, isValidRecord, stringifyRecord, parseRecord } from './record';
-import type { ReadRecordsCallback, ReadRecordsCallbackArgs, TaraRecord, TaraTapeMetadata } from './types';
+import { TaraRecord } from './record';
+import type { ReadRecordsCallback, ReadRecordsCallbackArgs, TaraRecord as ITaraRecord, TaraTapeMetadata } from './types';
 
 const FORMAT_VERSION = '1.0.0';
 
@@ -25,7 +25,7 @@ export class TaraTape {
      * Validate if an object is valid tape metadata.
      */
     private _isValidTapeMetadata(obj: unknown): obj is TaraTapeMetadata {
-        if (!isValidRecord(obj)) {
+        if (!TaraRecord.isValid(obj)) {
             return false;
         }
 
@@ -54,14 +54,14 @@ export class TaraTape {
      * Create tape metadata record.
      */
     private _createTapeMetadata(): TaraTapeMetadata {
-        const base = createRecord({
+        const record = new TaraRecord({
             type: 'taralib/tape-metadata',
             tapeId: this.tapeId,
             formatVersion: FORMAT_VERSION,
             createdAt: new Date().toISOString(),
         });
 
-        return base as TaraTapeMetadata;
+        return record.toObject() as TaraTapeMetadata;
     }
 
     /**
@@ -69,8 +69,13 @@ export class TaraTape {
      */
     private _bootstrapTape(): void {
         ensureTaraHome();
-        const metadata = this._createTapeMetadata();
-        fs.writeFileSync(this.path, stringifyRecord(metadata) + '\n', 'utf-8');
+        const record = new TaraRecord({
+            type: 'taralib/tape-metadata',
+            tapeId: this.tapeId,
+            formatVersion: FORMAT_VERSION,
+            createdAt: new Date().toISOString(),
+        });
+        fs.writeFileSync(this.path, record.toString() + '\n', 'utf-8');
     }
 
     /**
@@ -119,7 +124,8 @@ export class TaraTape {
             }
 
             try {
-                const parsed = parseRecord(line);
+                const taraRecord = TaraRecord.fromJSON(line);
+                const parsed = taraRecord.toObject() as ITaraRecord;
 
                 const elm: ReadRecordsCallbackArgs = {
                     parsed,
@@ -140,20 +146,18 @@ export class TaraTape {
 
     /**
      * Append a single record to the tape.
-     * Assumes the record is valid (created using createRecord).
      */
     appendRecord(record: TaraRecord): void {
-        const line = stringifyRecord(record) + '\n';
+        const line = record.toString() + '\n';
         fs.appendFileSync(this.path, line, 'utf-8');
     }
 
     /**
      * Append multiple records to the tape in a single operation.
-     * Assumes all records are valid (created using createRecord).
      */
     appendRecordBatch(records: TaraRecord[]): void {
         const content = records.map(
-            record => stringifyRecord(record)
+            record => record.toString()
         ).join('\n') + '\n';
         fs.appendFileSync(this.path, content, 'utf-8');
     }

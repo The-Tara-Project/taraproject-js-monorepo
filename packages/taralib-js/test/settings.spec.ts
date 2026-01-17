@@ -259,13 +259,28 @@ describe('Settings System', () => {
             expect(getSetting('JSON_STRING')).toBe('["a","b"]');
         });
 
-        it('should search raw key as-is when no alias found', () => {
+        it('should work with unregistered keys (treated as single alias)', () => {
             process.env.CUSTOM_KEY = 'custom-value';
 
             refreshSettings(testDir);
 
-            // CUSTOM_KEY has no aliases in registry
+            // Unregistered key: searches for [CUSTOM_KEY] with default source order
             expect(getSetting('CUSTOM_KEY')).toBe('custom-value');
+        });
+
+        it('should work with registered key without aliases (uses key as single alias)', () => {
+            // logLevel is in registry but has no aliases array defined
+            // Defaults to treating 'logLevel' itself as the single alias
+            process.env.logLevel = 'env-level';
+            fs.writeFileSync(
+                path.join(testDir, 'taraproject.json'),
+                JSON.stringify({ logLevel: 'project-level' })
+            );
+
+            refreshSettings(testDir);
+
+            // Searches for 'logLevel' key directly with default source order
+            expect(getSetting('logLevel')).toBe('env-level');
         });
 
         it('should respect per-key source priority overrides', () => {

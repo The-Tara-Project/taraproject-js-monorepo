@@ -49,16 +49,6 @@ TaraRecord.fromJSON(json)   // Parse from JSON string
 TaraRecord.isValid(obj)     // Validate structure
 ```
 
-### Legacy Functional API (Backward Compatibility)
-
-```typescript
-createRecord(content)      // Create new record (returns plain object)
-isValidRecord(obj)         // Type guard for validation
-checkValidRecord(obj)      // Validation with error throwing
-stringifyRecord(record)    // Serialize to JSON
-parseRecord(json)          // Parse from JSON string
-```
-
 ## Immutability
 
 - Record content is frozen using `Object.freeze()` after creation
