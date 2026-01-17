@@ -228,15 +228,15 @@ describe('tape', () => {
         });
     });
 
-    describe('getTapePath with TaraTape', () => {
-        it('returns path from TaraTape handler', () => {
+    describe('getTapePath with TaraTapeHandler', () => {
+        it('returns path from TaraTapeHandler handler', () => {
             const tape = createTapeHandler(testTapeId);
             expect(getTapePath(tape)).toBe(tape.path);
         });
     });
 
-    describe('tapeExists with TaraTape', () => {
-        it('works with TaraTape handler', () => {
+    describe('tapeExists with TaraTapeHandler', () => {
+        it('works with TaraTapeHandler handler', () => {
             const tape = createTapeHandler(testTapeId);
             expect(tapeExists(tape)).toBe(false);
             instantiateTape(tape);
@@ -244,8 +244,8 @@ describe('tape', () => {
         });
     });
 
-    describe('deleteTape with TaraTape', () => {
-        it('works with TaraTape handler', () => {
+    describe('deleteTape with TaraTapeHandler', () => {
+        it('works with TaraTapeHandler handler', () => {
             const tape = createTapeHandler(testTapeId);
             instantiateTape(tape);
             expect(tapeExists(tape)).toBe(true);

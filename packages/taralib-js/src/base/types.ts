@@ -14,11 +14,6 @@ export interface TaraTapeMetadata extends TaraRecord {
     createdAt: string; // ISO 8601
 }
 
-export interface TaraTape {
-    tapeId: string;
-    path: string;
-    metadata?: TaraTapeMetadata;
-}
 
 export interface ReadRecordsCallbackArgs {
     parsed: TaraRecord;
@@ -26,3 +21,15 @@ export interface ReadRecordsCallbackArgs {
     line: string;
 }
 export type ReadRecordsCallback = (elm: ReadRecordsCallbackArgs) => void | 'stop';
+
+export type SettingSource = 'env' | 'project' | 'global';
+
+export interface SettingsState {
+    loaded: boolean;
+    workingDir: string;
+    sources: {
+        env: Record<string, any>;
+        project: Record<string, any>;
+        global: Record<string, any>;
+    };
+}

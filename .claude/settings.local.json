@@ -8,7 +8,9 @@
       "Bash(npm test:*)",
       "Bash(npm install:*)",
       "Bash(tree:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

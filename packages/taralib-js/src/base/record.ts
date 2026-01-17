@@ -1,61 +1,188 @@
 import * as crypto from 'crypto';
-import type { TaraRecord } from './types';
+import type { TaraRecord as ITaraRecord } from './types';
 
 const UUID4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export function createRecord(
-    content: Record<string, unknown> = {}
-): TaraRecord {
-    const record = {
-        ...content,
-        __tara: {
-            id: crypto.randomUUID(),
-        },
-    };
-    return checkValidRecord(record)
+/**
+ * TaraRecord is a class-based state machine for managing record workflows.
+ * Records are immutable after creation - no new custom data can be added.
+ * Internal state can change for system operations (serialization caching, validation state).
+ */
+export class TaraRecord {
+    private readonly id: string;
+    private readonly content: Readonly<Record<string, unknown>>;
+    private serializedCache?: string;
+
+    /**
+     * Create a new TaraRecord.
+     * @param content - The record content (will be frozen for immutability)
+     * @param id - Optional UUID (generated if not provided)
+     */
+    constructor(content: Record<string, unknown> = {}, id?: string) {
+        this.id = id || crypto.randomUUID();
+
+        // Validate ID if provided
+        if (!isValidUuid4(this.id)) {
+            throw new Error('Invalid record: invalid UUID v4 format for id');
+        }
+
+        // Freeze content for immutability
+        this.content = Object.freeze({ ...content });
+    }
+
+    /**
+     * Get the record ID.
+     */
+    getId(): string {
+        return this.id;
+    }
+
+    /**
+     * Get the record content (frozen, read-only).
+     */
+    getContent(): Readonly<Record<string, unknown>> {
+        return this.content;
+    }
+
+    /**
+     * Convert the record to a plain object with __tara metadata.
+     * This is the format used for serialization and external access.
+     */
+    toObject(): Record<string, unknown> {
+        return {
+            ...this.content,
+            __tara: { id: this.id }
+        };
+    }
+
+    /**
+     * Serialize the record to a JSON string.
+     * Result is cached internally to avoid repeated stringification.
+     */
+    toString(): string {
+        if (!this.serializedCache) {
+            this.serializedCache = JSON.stringify(this.toObject());
+        }
+        return this.serializedCache;
+    }
+
+    /**
+     * Validate a plain object as a valid TaraRecord structure.
+     */
+    private static _isValidRecordObject(obj: unknown): boolean {
+        if (typeof obj !== 'object' || obj === null) {
+            return false;
+        }
+        const record = obj as Record<string, unknown>;
+        if (typeof record.__tara !== 'object' || record.__tara === null) {
+            return false;
+        }
+        const meta = record.__tara as Record<string, unknown>;
+        if (typeof meta.id !== 'string') {
+            return false;
+        }
+        return isValidUuid4(meta.id);
+    }
+
+    /**
+     * Create a TaraRecord from a plain object.
+     * The object must have a valid __tara.id field.
+     */
+    static fromObject(obj: Record<string, unknown>): TaraRecord {
+        if (!TaraRecord._isValidRecordObject(obj)) {
+            throw new Error('Invalid record: missing or invalid __tara.id');
+        }
+
+        const meta = obj.__tara as Record<string, unknown>;
+        const id = meta.id as string;
+
+        // Extract content (everything except __tara)
+        const { __tara, ...content } = obj;
+
+        return new TaraRecord(content, id);
+    }
+
+    /**
+     * Parse a JSON string into a TaraRecord.
+     */
+    static fromJSON(json: string): TaraRecord {
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(json);
+        } catch (error) {
+            throw new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}`);
+        }
+
+        if (typeof parsed !== 'object' || parsed === null) {
+            throw new Error('Invalid record: parsed JSON is not an object');
+        }
+
+        return TaraRecord.fromObject(parsed as Record<string, unknown>);
+    }
+
+    /**
+     * Check if an object is a valid TaraRecord structure.
+     */
+    static isValid(obj: unknown): boolean {
+        return TaraRecord._isValidRecordObject(obj);
+    }
 }
 
+/**
+ * Validate UUID v4 format.
+ */
 export function isValidUuid4(id: string): boolean {
     return UUID4_REGEX.test(id);
 }
 
-export function isValidRecord(obj: unknown): obj is TaraRecord {
-    if (typeof obj !== 'object' || obj === null) {
-        return false;
-    }
-    const record = obj as Record<string, unknown>;
-    if (typeof record.__tara !== 'object' || record.__tara === null) {
-        return false;
-    }
-    const meta = record.__tara as Record<string, unknown>;
-    if (typeof meta.id !== 'string') {
-        return false;
-    }
-    return isValidUuid4(meta.id);
+// ============================================================================
+// Legacy functional API for backward compatibility
+// ============================================================================
+
+/**
+ * Create a new TaraRecord (legacy functional API).
+ * @param content - The record content
+ * @returns A plain object representation of the record
+ */
+export function createRecord(
+    content: Record<string, unknown> = {}
+): ITaraRecord {
+    const record = new TaraRecord(content);
+    return record.toObject() as ITaraRecord;
 }
 
-export function checkValidRecord(record: unknown): TaraRecord {
-    if (isValidRecord(record)) { return record; }
-    throw new Error('Invalid record: missing or invalid __tara.id');
+/**
+ * Validate if an object is a valid TaraRecord structure (legacy functional API).
+ */
+export function isValidRecord(obj: unknown): obj is ITaraRecord {
+    return TaraRecord.isValid(obj);
 }
 
-export function stringifyRecord(
-    record: TaraRecord
-): string {
-    return JSON.stringify(record);
-}
-
-export function parseRecord(json: string): TaraRecord {
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(json);
-    } catch (error) {
-        throw new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}`);
-    }
-
-    if (!isValidRecord(parsed)) {
+/**
+ * Check if a record is valid, throwing if not (legacy functional API).
+ */
+export function checkValidRecord(record: unknown): ITaraRecord {
+    if (!isValidRecord(record)) {
         throw new Error('Invalid record: missing or invalid __tara.id');
     }
+    return record;
+}
 
-    return parsed;
+/**
+ * Stringify a record to JSON (legacy functional API).
+ */
+export function stringifyRecord(
+    record: ITaraRecord
+): string {
+    // For plain objects, convert to TaraRecord first for validation
+    const taraRecord = TaraRecord.fromObject(record as Record<string, unknown>);
+    return taraRecord.toString();
+}
+
+/**
+ * Parse a JSON string into a record (legacy functional API).
+ */
+export function parseRecord(json: string): ITaraRecord {
+    const taraRecord = TaraRecord.fromJSON(json);
+    return taraRecord.toObject() as ITaraRecord;
 }
