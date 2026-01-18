@@ -14,6 +14,13 @@ export class TaraRecord {
     private serializedCache?: string;
 
     /**
+     * Get the __tara metadata object.
+     */
+    get __tara(): { id: string } {
+        return { id: this.id };
+    }
+
+    /**
      * Create a new TaraRecord.
      * @param content - The record content (will be frozen for immutability)
      * @param id - Optional UUID (generated if not provided)

@@ -8,10 +8,10 @@ import type { ReadRecordsCallback, ReadRecordsCallbackArgs, TaraRecord as ITaraR
 const FORMAT_VERSION = '1.0.0';
 
 /**
- * TaraTape provides operations for managing tape-based record storage.
+ * TaraTapeHandler provides operations for managing tape-based record storage.
  * Tapes are append-only JSONL files with metadata and record management.
  */
-export class TaraTape {
+export class TaraTapeHandler {
     private tapeId: string;
     private path: string;
     private metadata?: TaraTapeMetadata;
@@ -229,55 +229,15 @@ export function buildTapePath(tapeId: string): string {
 }
 
 /**
- * Create a new TaraTape handler.
+ * Create a new TaraTapeHandler handler.
  * If `tapePath` is not provided, it is constructed a global tape handler.
  * @param tapeId - The tape identifier
  * @param tapePath - path for the tape file
- * @returns A new TaraTape instance
+ * @returns A new TaraTapeHandler instance
  */
 export function createTapeHandler(
     tapeId: string,
     tapePath = buildTapePath(tapeId)
-): TaraTape {
-    return new TaraTape(tapeId, tapePath);
-}
-
-// Legacy function exports for backward compatibility
-export function getTapePath(tape: TaraTape): string {
-    return tape.getPath();
-}
-
-export function instantiateTape(tape: TaraTape): void {
-    tape.instantiate();
-}
-
-export async function readTapeRecords(
-    tape: TaraTape,
-    callback: ReadRecordsCallback
-): Promise<void> {
-    return tape.readRecords(callback);
-}
-
-export function appendRecord(tape: TaraTape, record: TaraRecord): void {
-    tape.appendRecord(record);
-}
-
-export function appendRecordBatch(tape: TaraTape, records: TaraRecord[]): void {
-    tape.appendRecordBatch(records);
-}
-
-export function checkTapeFile(tape: TaraTape): void {
-    tape.checkFile();
-}
-
-export async function readTapeMetadata(tape: TaraTape): Promise<TaraTapeMetadata> {
-    return tape.readMetadata();
-}
-
-export function tapeExists(tape: TaraTape): boolean {
-    return tape.exists();
-}
-
-export function deleteTape(tape: TaraTape): void {
-    tape.delete();
+): TaraTapeHandler {
+    return new TaraTapeHandler(tapeId, tapePath);
 }

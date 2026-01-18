@@ -2,18 +2,17 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createGitRepo } from '../src';
-import type { TaraGitRepo } from '../src';
+import { GitHandler } from '../src';
 
 describe('git', () => {
     let testRepoPath: string;
-    let repo: TaraGitRepo;
+    let repo: GitHandler;
 
     beforeEach(() => {
         // Create a unique temporary directory for each test
         testRepoPath = path.join(os.tmpdir(), `tara-git-test-${Date.now()}-${Math.random().toString(36).substring(7)}`);
         fs.mkdirSync(testRepoPath, { recursive: true });
-        repo = createGitRepo(testRepoPath);
+        repo = new GitHandler(testRepoPath);
     });
 
     afterEach(() => {
@@ -23,14 +22,14 @@ describe('git', () => {
         }
     });
 
-    describe('createGitRepo', () => {
-        it('creates a TaraGitRepo instance', () => {
+    describe('new GitHandler', () => {
+        it('creates a GitHandler instance', () => {
             expect(repo).toBeDefined();
             expect(repo.getRepoPath()).toBe(testRepoPath);
         });
 
         it('resolves relative paths to absolute paths', () => {
-            const relativeRepo = createGitRepo('.');
+            const relativeRepo = new GitHandler('.');
             expect(path.isAbsolute(relativeRepo.getRepoPath())).toBe(true);
         });
     });
@@ -55,7 +54,7 @@ describe('git', () => {
 
         it('creates directory if it does not exist', () => {
             const newRepoPath = path.join(testRepoPath, 'new-repo');
-            const newRepo = createGitRepo(newRepoPath);
+            const newRepo = new GitHandler(newRepoPath);
             expect(fs.existsSync(newRepoPath)).toBe(false);
             newRepo.init();
             expect(fs.existsSync(newRepoPath)).toBe(true);
@@ -120,7 +119,7 @@ describe('git', () => {
         });
 
         it('throws error if repository is not initialized', () => {
-            const uninitRepo = createGitRepo(path.join(os.tmpdir(), `uninit-${Date.now()}`));
+            const uninitRepo = new GitHandler(path.join(os.tmpdir(), `uninit-${Date.now()}`));
             fs.mkdirSync(uninitRepo.getRepoPath());
 
             expect(() => uninitRepo.commit('Test')).toThrow();
@@ -208,7 +207,7 @@ describe('git', () => {
         });
 
         it('throws error if repository is not initialized', () => {
-            const uninitRepo = createGitRepo(path.join(os.tmpdir(), `uninit-${Date.now()}`));
+            const uninitRepo = new GitHandler(path.join(os.tmpdir(), `uninit-${Date.now()}`));
             fs.mkdirSync(uninitRepo.getRepoPath());
 
             expect(() => uninitRepo.checkout('main')).toThrow();
@@ -227,7 +226,7 @@ describe('git', () => {
             fs.mkdirSync(subDir);
 
             // Try to use the subdirectory as repo path
-            const subRepo = createGitRepo(subDir);
+            const subRepo = new GitHandler(subDir);
 
             // Validation should pass because subdir is within the initialized repo
             fs.writeFileSync(path.join(subDir, 'test.txt'), 'content');
@@ -242,7 +241,7 @@ describe('git', () => {
             const subDir = path.join(testRepoPath, 'subdir');
             fs.mkdirSync(subDir);
 
-            const subRepo = createGitRepo(subDir);
+            const subRepo = new GitHandler(subDir);
 
             expect(() => subRepo.checkout('main')).toThrow(/validation failed/i);
         });
@@ -262,7 +261,7 @@ describe('git', () => {
         });
 
         it('handles invalid repository path gracefully', () => {
-            const invalidRepo = createGitRepo('/invalid/path/that/does/not/exist');
+            const invalidRepo = new GitHandler('/invalid/path/that/does/not/exist');
 
             expect(() => invalidRepo.commit('Test')).toThrow();
         });

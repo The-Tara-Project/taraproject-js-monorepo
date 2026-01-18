@@ -68,22 +68,6 @@ tape.getTapeId()          // Get tape identifier
 tape.getPath()            // Get file path
 ```
 
-### Legacy Functional API (Backward Compatibility)
-
-```typescript
-createTapeHandler(tapeId, tapePath?)  // Create tape instance
-buildTapePath(tapeId)                 // Construct default path
-getTapePath(tape)                     // Get tape path
-instantiateTape(tape)                 // Initialize tape file
-readTapeRecords(tape, callback)       // Stream records
-readTapeMetadata(tape)                // Read metadata
-appendRecord(tape, record)            // Append single record
-appendRecordBatch(tape, records)      // Append multiple records
-checkTapeFile(tape)                   // Validate file exists
-tapeExists(tape)                      // Check existence
-deleteTape(tape)                      // Delete tape file
-```
-
 ## Reading Records
 
 The tape reader provides a streaming, callback-based interface:

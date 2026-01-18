@@ -2,17 +2,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-    appendRecord,
-    appendRecordBatch,
-    createRecord,
+    TaraRecord,
     createTapeHandler,
-    deleteTape,
-    getTapePath,
     getTapesFolderPath,
-    instantiateTape,
-    readTapeMetadata,
-    readTapeRecords,
-    tapeExists
 } from '../src';
 
 describe('tape', () => {
@@ -22,15 +14,15 @@ describe('tape', () => {
     afterEach(() => {
         // Clean up test tape
         try {
-            deleteTape(tape);
+            tape.delete();
         } catch {
             // ignore
         }
     });
 
-    describe('getTapePath', () => {
+    describe('getPath', () => {
         it('returns path with .jsonl extension', () => {
-            const result = getTapePath(tape);
+            const result = tape.getPath();
             expect(result).toBe(path.join(getTapesFolderPath(), `${testTapeId}.tara.jsonl`));
         });
     });
@@ -38,103 +30,103 @@ describe('tape', () => {
     describe('appendRecord', () => {
         it('appends single record to tape', () => {
             const testTape = createTapeHandler(`test-append-${Date.now()}`);
-            instantiateTape(testTape);
-            const record = createRecord({ data: 'test' });
-            appendRecord(testTape, record);
+            testTape.instantiate();
+            const record = new TaraRecord({ data: 'test' });
+            testTape.appendRecord(record);
 
-            const content = fs.readFileSync(testTape.path, 'utf-8');
+            const content = fs.readFileSync(testTape.getPath(), 'utf-8');
             const lines = content.trim().split('\n');
             expect(lines.length).toBe(2);
-            deleteTape(testTape);
+            testTape.delete();
         });
 
         it('appends multiple records in sequence', () => {
             const testTape = createTapeHandler(`test-multi-${Date.now()}`);
-            instantiateTape(testTape);
-            const record1 = createRecord({ data: 'first' });
-            const record2 = createRecord({ data: 'second' });
-            appendRecord(testTape, record1);
-            appendRecord(testTape, record2);
+            testTape.instantiate();
+            const record1 = new TaraRecord({ data: 'first' });
+            const record2 = new TaraRecord({ data: 'second' });
+            testTape.appendRecord(record1);
+            testTape.appendRecord(record2);
 
-            const content = fs.readFileSync(testTape.path, 'utf-8');
+            const content = fs.readFileSync(testTape.getPath(), 'utf-8');
             const lines = content.trim().split('\n');
             expect(lines.length).toBe(3);
-            deleteTape(testTape);
+            testTape.delete();
         });
     });
 
-    describe('tapeExists', () => {
+    describe('exists', () => {
         it('returns false for non-existent tape', () => {
             const nonExistentTape = createTapeHandler(`non-existent-${Date.now()}`);
-            expect(tapeExists(nonExistentTape)).toBe(false);
+            expect(nonExistentTape.exists()).toBe(false);
         });
 
         it('returns true for existing tape', () => {
             const testTape = createTapeHandler(`exists-test-${Date.now()}`);
-            instantiateTape(testTape);
-            expect(tapeExists(testTape)).toBe(true);
-            deleteTape(testTape);
+            testTape.instantiate();
+            expect(testTape.exists()).toBe(true);
+            testTape.delete();
         });
     });
 
-    describe('deleteTape', () => {
+    describe('delete', () => {
         it('deletes existing tape', () => {
             const testTape = createTapeHandler(`delete-test-${Date.now()}`);
-            instantiateTape(testTape);
-            expect(tapeExists(testTape)).toBe(true);
-            deleteTape(testTape);
-            expect(tapeExists(testTape)).toBe(false);
+            testTape.instantiate();
+            expect(testTape.exists()).toBe(true);
+            testTape.delete();
+            expect(testTape.exists()).toBe(false);
         });
 
         it('does not throw for non-existent tape', () => {
             const nonExistentTape = createTapeHandler(`non-existent-delete-${Date.now()}`);
-            expect(() => deleteTape(nonExistentTape)).not.toThrow();
+            expect(() => nonExistentTape.delete()).not.toThrow();
         });
     });
 
     describe('createTapeHandler', () => {
         it('creates a lightweight tape handler', () => {
-            expect(tape.tapeId).toBe(testTapeId);
-            expect(tape.path).toBe(path.join(getTapesFolderPath(), `${testTapeId}.tara.jsonl`));
+            expect(tape.getTapeId()).toBe(testTapeId);
+            expect(tape.getPath()).toBe(path.join(getTapesFolderPath(), `${testTapeId}.tara.jsonl`));
         });
 
         it('does not create file or perform I/O', () => {
-            const tape = createTapeHandler(testTapeId);
-            expect(fs.existsSync(tape.path)).toBe(false);
+            const createdTape = createTapeHandler(testTapeId);
+            expect(fs.existsSync(createdTape.getPath())).toBe(false);
         });
     });
 
-    describe('instantiateTape', () => {
+    describe('instantiate', () => {
         it('creates tape file if it does not exist', () => {
-            expect(fs.existsSync(tape.path)).toBe(false);
-            instantiateTape(tape);
-            expect(fs.existsSync(tape.path)).toBe(true);
+            expect(fs.existsSync(tape.getPath())).toBe(false);
+            tape.instantiate();
+            expect(fs.existsSync(tape.getPath())).toBe(true);
         });
 
         it('is idempotent - does not error if called multiple times', () => {
-            instantiateTape(tape);
-            expect(() => instantiateTape(tape)).not.toThrow();
+            tape.instantiate();
+            expect(() => tape.instantiate()).not.toThrow();
         });
 
         it('does not overwrite existing tape', () => {
-            instantiateTape(tape);
-            const firstContent = fs.readFileSync(tape.path, 'utf-8');
-            instantiateTape(tape);
-            const secondContent = fs.readFileSync(tape.path, 'utf-8');
+            tape.instantiate();
+            const firstContent = fs.readFileSync(tape.getPath(), 'utf-8');
+            tape.instantiate();
+            const secondContent = fs.readFileSync(tape.getPath(), 'utf-8');
             expect(firstContent).toBe(secondContent);
         });
     });
 
-    describe('readTapeRecords', () => {
+    describe('readRecords', () => {
         it('streams records from tape', async () => {
-            instantiateTape(tape);
-            const record1 = createRecord({ data: 'test1' });
-            const record2 = createRecord({ data: 'test2' });
-            appendRecord(tape, record1);
-            appendRecord(tape, record2);
+            tape.instantiate();
+            const record1 = new TaraRecord({ data: 'test1' });
+            const record2 = new TaraRecord({ data: 'test2' });
+            tape.appendRecord(record1);
+            tape.appendRecord(record2);
 
             const records: any[] = [];
-            await readTapeRecords(tape, (record) => {
+            await tape.readRecords((record) => {
                 records.push(record);
             });
 
@@ -144,14 +136,14 @@ describe('tape', () => {
         });
 
         it('stops iteration when callback returns "stop"', async () => {
-            const tape = createTapeHandler(testTapeId);
-            instantiateTape(tape);
+            const createdTape = createTapeHandler(testTapeId);
+            createdTape.instantiate();
             for (let i = 0; i < 10; i++) {
-                appendRecord(tape, createRecord({ index: i }));
+                createdTape.appendRecord(new TaraRecord({ index: i }));
             }
 
             const records: any[] = [];
-            await readTapeRecords(tape, (record) => {
+            await createdTape.readRecords((record) => {
                 records.push(record);
                 if (records.length >= 5) {
                     return 'stop';
@@ -162,46 +154,46 @@ describe('tape', () => {
         });
 
         it('throws error on corrupted record', async () => {
-            const tape = createTapeHandler(testTapeId);
-            instantiateTape(tape);
-            appendRecord(tape, createRecord({ data: 'valid' }));
-            fs.appendFileSync(tape.path, 'invalid json\n', 'utf-8');
+            const createdTape = createTapeHandler(testTapeId);
+            createdTape.instantiate();
+            createdTape.appendRecord(new TaraRecord({ data: 'valid' }));
+            fs.appendFileSync(createdTape.getPath(), 'invalid json\n', 'utf-8');
 
             await expect(async () => {
-                await readTapeRecords(tape, () => {});
+                await createdTape.readRecords(() => {});
             }).rejects.toThrow('Corrupted record');
         });
     });
 
     describe('appendRecordBatch', () => {
         it('appends multiple records in single operation', () => {
-            const tape = createTapeHandler(testTapeId);
-            instantiateTape(tape);
+            const createdTape = createTapeHandler(testTapeId);
+            createdTape.instantiate();
             const records = [
-                createRecord({ data: 'batch1' }),
-                createRecord({ data: 'batch2' }),
-                createRecord({ data: 'batch3' }),
+                new TaraRecord({ data: 'batch1' }),
+                new TaraRecord({ data: 'batch2' }),
+                new TaraRecord({ data: 'batch3' }),
             ];
 
-            appendRecordBatch(tape, records);
+            createdTape.appendRecordBatch(records);
 
-            const content = fs.readFileSync(tape.path, 'utf-8');
+            const content = fs.readFileSync(createdTape.getPath(), 'utf-8');
             const lines = content.trim().split('\n');
             expect(lines.length).toBe(4);
         });
 
         it('appends all records without validation', () => {
-            const tape = createTapeHandler(testTapeId);
-            instantiateTape(tape);
+            const createdTape = createTapeHandler(testTapeId);
+            createdTape.instantiate();
             const records = [
-                createRecord({ data: 'valid1' }),
-                createRecord({ data: 'valid2' }),
-                createRecord({ data: 'valid3' }),
+                new TaraRecord({ data: 'valid1' }),
+                new TaraRecord({ data: 'valid2' }),
+                new TaraRecord({ data: 'valid3' }),
             ];
 
-            appendRecordBatch(tape, records);
+            createdTape.appendRecordBatch(records);
 
-            const content = fs.readFileSync(tape.path, 'utf-8');
+            const content = fs.readFileSync(createdTape.getPath(), 'utf-8');
             const lines = content.trim().split('\n');
             expect(lines.length).toBe(4);
             expect(lines[0]).toBeDefined();
@@ -211,46 +203,21 @@ describe('tape', () => {
         });
     });
 
-    describe('readTapeMetadata', () => {
+    describe('readMetadata', () => {
         it('reads metadata from tape', async () => {
-            const tape = createTapeHandler(testTapeId);
-            instantiateTape(tape);
+            const createdTape = createTapeHandler(testTapeId);
+            createdTape.instantiate();
 
-            const metadata = await readTapeMetadata(tape);
+            const metadata = await createdTape.readMetadata();
             expect(metadata.tapeId).toBe(testTapeId);
             expect(metadata.formatVersion).toBe('1.0.0');
             expect(metadata.createdAt).toBeDefined();
         });
 
         it('throws error if tape does not exist', async () => {
-            const tape = createTapeHandler('non-existent-tape');
-            await expect(readTapeMetadata(tape)).rejects.toThrow();
+            const createdTape = createTapeHandler('non-existent-tape');
+            await expect(createdTape.readMetadata()).rejects.toThrow();
         });
     });
 
-    describe('getTapePath with TaraTapeHandler', () => {
-        it('returns path from TaraTapeHandler handler', () => {
-            const tape = createTapeHandler(testTapeId);
-            expect(getTapePath(tape)).toBe(tape.path);
-        });
-    });
-
-    describe('tapeExists with TaraTapeHandler', () => {
-        it('works with TaraTapeHandler handler', () => {
-            const tape = createTapeHandler(testTapeId);
-            expect(tapeExists(tape)).toBe(false);
-            instantiateTape(tape);
-            expect(tapeExists(tape)).toBe(true);
-        });
-    });
-
-    describe('deleteTape with TaraTapeHandler', () => {
-        it('works with TaraTapeHandler handler', () => {
-            const tape = createTapeHandler(testTapeId);
-            instantiateTape(tape);
-            expect(tapeExists(tape)).toBe(true);
-            deleteTape(tape);
-            expect(tapeExists(tape)).toBe(false);
-        });
-    });
 });

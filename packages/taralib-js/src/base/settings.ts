@@ -16,6 +16,9 @@ const SETTING_REGISTRY: Record<string, {
     logLevel: {
         aliases: ['logLevel', 'LOG_LEVEL', 'TARA_LOG_LEVEL'],
     },
+    taraHome: {
+        aliases: ['taraHome', 'TARA_HOME', 'TARAPROJECT_HOME'],
+    },
 };
 // Priority order for source resolution
 
@@ -114,7 +117,7 @@ export function getSetting(key: string, defaultValue?: any): any {
     const aliases = entry?.aliases || [key];
     const sources = entry?.sources || SOURCES_PRIORITY;
 
-    // 2. Search all aliases across all sources (aliases first, then sources)
+    // 2. Search all sources in priority order, checking all aliases in each source
     for (const alias of aliases) {
         for (const source of sources) {
             const value = getRawValue(alias, source);

@@ -3,10 +3,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
- * TaraGitRepo provides basic Git operations for managing tape repositories.
+ * GitHandler provides basic Git operations tailored.
  * Operations are synchronous and use the global Git user configuration.
  */
-export class TaraGitRepo {
+export class GitHandler {
     private repoPath: string;
 
     constructor(repoPath: string) {
@@ -72,6 +72,16 @@ export class TaraGitRepo {
         this._validate();
     }
 
+    isGitRepo(): boolean {
+        try {
+            this._validate();
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+
     /**
      * Stage all changes and commit with the given message.
      * If there are no changes, this is a silent no-op.
@@ -109,13 +119,4 @@ export class TaraGitRepo {
     getRepoPath(): string {
         return this.repoPath;
     }
-}
-
-/**
- * Factory function to create a TaraGitRepo instance.
- * @param repoPath - Path to the git repository
- * @returns A new TaraGitRepo instance
- */
-export function createGitRepo(repoPath: string): TaraGitRepo {
-    return new TaraGitRepo(repoPath);
 }

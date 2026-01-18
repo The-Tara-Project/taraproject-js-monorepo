@@ -33,6 +33,7 @@
 
 ## verification rule
 - tests are our communication medium
+- run tests by `npm run test`    
 - create tests to define your implementation behavior
 - tests are the source of truth for expected behavior
 - if I don't like a test, i will tell you to change it
