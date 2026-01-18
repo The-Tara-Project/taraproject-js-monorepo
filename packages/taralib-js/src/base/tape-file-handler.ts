@@ -1,24 +1,26 @@
 import * as fs from 'fs';
-import * as path from 'path';
 import * as readline from 'readline';
-import { ensureTaraHome, getTapesFolderPath } from './home';
+import { ensureTaraHome } from './home';
 import { TaraRecord } from './record';
 import type { ReadRecordsCallback, ReadRecordsCallbackArgs, TaraRecord as ITaraRecord, TaraTapeMetadata } from './types';
+import { TaraTapeHandler } from './tape-handler';
 
 const FORMAT_VERSION = '1.0.0';
 
 /**
- * TaraTapeHandler provides operations for managing tape-based record storage.
+ * TapeFileHandler handles all file operations for a tape.
  * Tapes are append-only JSONL files with metadata and record management.
  */
-export class TaraTapeHandler {
+export class TapeFileHandler {
     private tapeId: string;
     private path: string;
     private metadata?: TaraTapeMetadata;
 
-    constructor(tapeId: string, tapePath: string) {
-        this.tapeId = tapeId;
-        this.path = tapePath;
+    constructor(
+        private tape: TaraTapeHandler
+    ) {
+        this.tapeId = tape.getTapeId();
+        this.path = tape.getPath();
     }
 
     /**
@@ -53,7 +55,7 @@ export class TaraTapeHandler {
     /**
      * Create tape metadata record.
      */
-    private _createTapeMetadata(): TaraTapeMetadata {
+    private _builtTapeMetadata(): TaraTapeMetadata {
         const record = new TaraRecord({
             type: 'taralib/tape-metadata',
             tapeId: this.tapeId,
@@ -65,42 +67,26 @@ export class TaraTapeHandler {
     }
 
     /**
-     * Bootstrap a new tape file with metadata.
+     * Bootstrap a new tape file
+     * - creates necessary directories
+     * - writes initial metadata record
      */
     private _bootstrapTape(): void {
         ensureTaraHome();
-        const record = new TaraRecord({
-            type: 'taralib/tape-metadata',
-            tapeId: this.tapeId,
-            formatVersion: FORMAT_VERSION,
-            createdAt: new Date().toISOString(),
-        });
-        fs.writeFileSync(this.path, record.toString() + '\n', 'utf-8');
-    }
-
-    /**
-     * Get the tape ID.
-     */
-    getTapeId(): string {
-        return this.tapeId;
-    }
-
-    /**
-     * Get the file path for this tape.
-     */
-    getPath(): string {
-        return this.path;
+        const meta = this._builtTapeMetadata();
+        fs.writeFileSync(this.path, meta.toString() + '\n', 'utf-8');
     }
 
     /**
      * Create the tape file if it doesn't exist.
      * This operation is idempotent.
      */
-    instantiate(): void {
+    instantiate(): this {
         if (fs.existsSync(this.path)) {
-            return;
+            return this;
         }
         this._bootstrapTape();
+        return this;
     }
 
     /**
@@ -217,27 +203,4 @@ export class TaraTapeHandler {
             fs.unlinkSync(this.path);
         }
     }
-}
-
-/**
- * Build the file path for a tape given its ID.
- */
-export function buildTapePath(tapeId: string): string {
-    const tapesFolderPath = getTapesFolderPath();
-    const tapeName = `${tapeId}.tara.jsonl`;
-    return path.join(tapesFolderPath, tapeName);
-}
-
-/**
- * Create a new TaraTapeHandler handler.
- * If `tapePath` is not provided, it is constructed a global tape handler.
- * @param tapeId - The tape identifier
- * @param tapePath - path for the tape file
- * @returns A new TaraTapeHandler instance
- */
-export function createTapeHandler(
-    tapeId: string,
-    tapePath = buildTapePath(tapeId)
-): TaraTapeHandler {
-    return new TaraTapeHandler(tapeId, tapePath);
 }

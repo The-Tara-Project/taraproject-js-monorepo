@@ -105,6 +105,34 @@ export class GitHandler {
     }
 
     /**
+     * Stage a specific file.
+     * @param filePath - The file path relative to the repo root
+     */
+    addFile(filePath: string): void {
+        this._validate();
+        this._exec(`add "${filePath.replace(/"/g, '\\"')}"`);
+    }
+
+    /**
+     * Commit staged changes with the given message.
+     * Only commits what is already staged. If nothing is staged, this is a silent no-op.
+     * @param message - The commit message
+     */
+    commitStaged(message: string): void {
+        this._validate();
+
+        // Check if there are any staged changes
+        const stagedStatus = this._exec('diff --cached --name-only');
+        if (stagedStatus.length === 0) {
+            // Nothing staged, silent no-op
+            return;
+        }
+
+        // Commit with message
+        this._exec(`commit -m "${message.replace(/"/g, '\\"')}"`);
+    }
+
+    /**
      * Force checkout to the specified ref, discarding uncommitted changes.
      * @param ref - The git ref to checkout (branch, tag, or commit hash)
      */

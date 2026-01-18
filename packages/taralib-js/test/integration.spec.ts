@@ -10,7 +10,7 @@ describe('integration: create -> store -> read -> check', () => {
     afterEach(() => {
         try {
             const tape = createTapeHandler(testTapeId);
-            tape.delete();
+            tape.fileHandler.delete();
         } catch {
             // ignore cleanup errors
         }
@@ -19,7 +19,7 @@ describe('integration: create -> store -> read -> check', () => {
     it('full workflow: create tape, add record, read back, verify content', async () => {
         // 1. Create a new tape
         const tape = createTapeHandler(testTapeId);
-        tape.instantiate();
+        tape.fileHandler.instantiate();
         const tapePath = tape.getPath();
         expect(tapePath).toContain(testTapeId);
 
@@ -35,17 +35,17 @@ describe('integration: create -> store -> read -> check', () => {
         const record = new TaraRecord(testContent);
 
         // 3. Append record to tape
-        tape.appendRecord(record);
+        tape.fileHandler.appendRecord(record);
 
         // 4. Read and verify metadata
-        const metadata = await tape.readMetadata();
+        const metadata = await tape.fileHandler.readMetadata();
         expect(metadata.tapeId).toBe(testTapeId);
         expect(metadata.formatVersion).toBe('1.0.0');
         expect(metadata.createdAt).toBeDefined();
 
         // 5. Read and verify records
         const records: TaraRecord[] = [];
-        await tape.readRecords(({ parsed }) => {
+        await tape.fileHandler.readRecords(({ parsed }) => {
             records.push(parsed);
         });
 
@@ -63,7 +63,7 @@ describe('integration: create -> store -> read -> check', () => {
 
     it('supports multiple records in sequence', async () => {
         const tape = createTapeHandler(testTapeId);
-        tape.instantiate();
+        tape.fileHandler.instantiate();
 
         // Add multiple records
         const records = [
@@ -73,12 +73,12 @@ describe('integration: create -> store -> read -> check', () => {
         ];
 
         for (const record of records) {
-            tape.appendRecord(record);
+            tape.fileHandler.appendRecord(record);
         }
 
         // Read and verify
         const readRecords: TaraRecord[] = [];
-        await tape.readRecords(({ parsed }) => {
+        await tape.fileHandler.readRecords(({ parsed }) => {
             readRecords.push(parsed);
         });
 

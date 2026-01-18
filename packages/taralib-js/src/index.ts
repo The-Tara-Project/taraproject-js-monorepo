@@ -13,7 +13,10 @@ export {
     TaraTapeHandler,
     createTapeHandler,
     buildTapePath,
-} from './base/tape';
+} from './base/tape-handler';
+
+export { TapeFileHandler } from './base/tape-file-handler';
+export { TapeGitHandler } from './base/tape-git-handler';
 
 // Settings system
 export { refreshSettings, getSetting, getRawValue, isLoaded } from './base/settings';
