@@ -1,11 +1,13 @@
 {
-    "name": "@jose_pereiro/taralib-js",
+    "name": "@jose_pereiro/tara-cli",
     "version": "0.0.1",
-    "description": "{{HERE_DESCRIPTION}}",
+    "description": "Command-line interface for Tara tape management",
     "private": true,
     "type": "commonjs",
-    "main": "dist/index.js",
-    "types": "dist/index.d.ts",
+    "main": "dist/cli.js",
+    "bin": {
+        "tara": "dist/cli.js"
+    },
     "files": [
         "dist"
     ],
@@ -19,7 +21,11 @@
         "node": ">=18"
     },
     "dependencies": {
-        
+        "@jose_pereiro/taralib-js": "file:../taralib-js",
+        "commander": "^12.1.0",
+        "chalk": "^4.1.2",
+        "cli-table3": "^0.6.5",
+        "tslib": "^2.8.1"
     },
     "devDependencies": {
         "@types/node": "^24.3.0",

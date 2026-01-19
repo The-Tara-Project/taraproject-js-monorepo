@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { TaraRecord, isValidUuid4 } from '../src';
 
 describe('record', () => {
+
     describe('TaraRecord', () => {
         it('creates record with __tara.id', () => {
             const record = new TaraRecord();

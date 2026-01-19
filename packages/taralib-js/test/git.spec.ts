@@ -2,24 +2,29 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { GitHandler } from '../src';
+import { ensureTaraHome, getTaraHomePath, GitHandler, refreshSettings } from '../src';
+import { setupTestEnv, setupTestHomeDir, teardownTestEnv } from './utils';
 
 describe('git', () => {
+    
+
     let testRepoPath: string;
     let repo: GitHandler;
 
     beforeEach(() => {
-        // Create a unique temporary directory for each test
-        testRepoPath = path.join(os.tmpdir(), `tara-git-test-${Date.now()}-${Math.random().toString(36).substring(7)}`);
-        fs.mkdirSync(testRepoPath, { recursive: true });
+
+        // setup env
+        setupTestEnv();
+
+        // setup repo
+        testRepoPath = getTaraHomePath();
         repo = new GitHandler(testRepoPath);
+
     });
 
     afterEach(() => {
-        // Clean up test repository
-        if (fs.existsSync(testRepoPath)) {
-            fs.rmSync(testRepoPath, { recursive: true, force: true });
-        }
+        // clear env
+        teardownTestEnv();
     });
 
     describe('new GitHandler', () => {

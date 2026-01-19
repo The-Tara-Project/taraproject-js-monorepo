@@ -18,7 +18,7 @@ export { TapeFileHandler } from './base/tape-file-handler';
 export { TapeGitHandler } from './base/tape-git-handler';
 
 // Settings system
-export { refreshSettings, getSetting, getRawValue, isLoaded } from './base/settings';
+export { refreshSettings, getSetting, getRawValue, isSettingsLoaded } from './base/settings';
 
 // Git operations
 export { GitHandler } from './base/git';

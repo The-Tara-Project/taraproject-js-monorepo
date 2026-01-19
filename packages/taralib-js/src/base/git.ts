@@ -142,6 +142,83 @@ export class GitHandler {
     }
 
     /**
+     * Get the current git status.
+     * @param format - 'porcelain' for machine-readable, 'default' for human-readable
+     * @returns Status output
+     */
+    getStatus(format: 'porcelain' | 'default' = 'default'): string {
+        this._validate();
+        const flag = format === 'porcelain' ? ' --porcelain' : '';
+        return this._exec(`status${flag}`);
+    }
+
+    /**
+     * Get commit log.
+     * @param options - Log options (limit, format, etc.)
+     * @returns Log output
+     */
+    getLog(options?: {
+        limit?: number;
+        oneline?: boolean;
+        format?: string;
+    }): string {
+        this._validate();
+        const parts = ['log'];
+
+        if (options?.oneline) {
+            parts.push('--oneline');
+        }
+        if (options?.limit) {
+            parts.push(`-${options.limit}`);
+        }
+        if (options?.format) {
+            parts.push(`--format="${options.format}"`);
+        }
+
+        return this._exec(parts.join(' '));
+    }
+
+    /**
+     * Get diff output.
+     * @param ref - Optional ref to compare against (defaults to unstaged changes)
+     * @param cached - If true, show staged changes
+     * @returns Diff output
+     */
+    getDiff(ref?: string, cached: boolean = false): string {
+        this._validate();
+        const parts = ['diff'];
+
+        if (cached) {
+            parts.push('--cached');
+        }
+        if (ref) {
+            parts.push(ref);
+        }
+
+        return this._exec(parts.join(' '));
+    }
+
+    /**
+     * Get the current branch name.
+     * @returns Current branch name
+     */
+    getCurrentBranch(): string {
+        this._validate();
+        return this._exec('rev-parse --abbrev-ref HEAD');
+    }
+
+    /**
+     * Get the current commit hash.
+     * @param short - If true, return short hash
+     * @returns Commit hash
+     */
+    getHeadCommit(short: boolean = false): string {
+        this._validate();
+        const flag = short ? ' --short' : '';
+        return this._exec(`rev-parse${flag} HEAD`);
+    }
+
+    /**
      * Get the current repository path.
      */
     getRepoPath(): string {

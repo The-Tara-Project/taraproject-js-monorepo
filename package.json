@@ -2,13 +2,13 @@
     "name": "taraproject-js-monorepo",
     "private": true,
     "workspaces": [
-        "packages/dev",
-        "packages/taralib-js"
+        "packages/taralib-js",
+        "packages/tara-cli"
     ],
     "scripts": {
         "build": "npm run build --workspaces",
         "typecheck": "npm run typecheck --workspaces",
-        "test": "npm run test-run --workspaces",
+        "test": "npm run test --workspaces",
         "clean": "rm -rf node_modules packages/**/dist",
         "interactive-dev": "npm run build --workspaces; npx tsx --tsconfig packages/taralib-js/test/tsconfig.json packages/taralib-js/test/dev/dev.ts"
     },

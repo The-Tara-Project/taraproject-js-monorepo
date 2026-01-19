@@ -1,0 +1,29 @@
+{
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        /* Core library layout */
+        "rootDir": "src",
+        "outDir": "dist",
+        /* Declarations (library contract) */
+        "declaration": true,
+        "declarationMap": true,
+        "emitDeclarationOnly": true,
+        /* Source maps for types */
+        "inlineSourceMap": false,
+        "inlineSources": false,
+        /* Module / TS behavior */
+        "allowJs": false,
+        "isolatedModules": false,
+        /* Resolution */
+        "baseUrl": "."
+    },
+    "include": [
+        "src/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist",
+        "**/*.test.ts",
+        "**/*.spec.ts"
+    ]
+}

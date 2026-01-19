@@ -1,27 +1,34 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
     TaraRecord,
     TaraTapeHandler,
     buildGlobalTapePath,
     getTapesFolderPath,
 } from '../src';
+import { setupTestEnv, teardownTestEnv } from './utils';
 
 describe('tape', () => {
-    const testTapeId = `test-tape-${Date.now()}`;
-    const tape = new TaraTapeHandler(
-        testTapeId,
-        buildGlobalTapePath(testTapeId)
-    );
+
+    let testTapeId: string;
+    let tape: TaraTapeHandler;
+
+    beforeEach(() => {
+        // setup env
+        setupTestEnv();
+
+        // Create tape after setting TARA_HOME
+        testTapeId = `test-tape-${Date.now()}`;
+        tape = new TaraTapeHandler(
+            testTapeId,
+            buildGlobalTapePath(testTapeId)
+        );
+    });
 
     afterEach(() => {
-        // Clean up test tape
-        try {
-            tape.fileHandler.delete();
-        } catch {
-            // ignore
-        }
+        // clear env
+        teardownTestEnv()
     });
 
     describe('getPath', () => {

@@ -4,7 +4,6 @@
 - It is intended for bird-eye understanding of the system architecture
 
 ## SubSystem: Tara Home Folder
-
 - `~/.taraproject` folder
 - A hidden folder in the user's home directory to store global `Tara` configuration and data.
 - It store the global `TaraTape`s

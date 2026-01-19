@@ -44,6 +44,18 @@ let settingsState: {
 };
 
 /**
+ * Get the global config file path.
+ * Uses TARA_HOME environment variable if set, otherwise defaults to ~/.taraproject
+ *
+ * Note: We check environment variable directly here (not via settings system) to avoid
+ * chicken-and-egg problem: global config location must be determinable without loading settings.
+ */
+function getGlobalConfigPath(): string {
+    const taraHome = process.env.TARA_HOME || path.join(os.homedir(), '.taraproject');
+    return path.join(taraHome, 'config.json');
+}
+
+/**
  * Load settings from all sources.
  * Wipes previous state and reloads fresh.
  *
@@ -51,11 +63,10 @@ let settingsState: {
  */
 export function refreshSettings(workingDir?: string): void {
     // 1. Wipe previous state
-    settingsState = {
-        loaded: false,
-        workingDir: workingDir || process.cwd(),
-        sources: { env: {}, project: {}, global: {} },
-    };
+    resetSettings();
+
+    // Set working directory
+    settingsState.workingDir = workingDir ? path.resolve(workingDir) : process.cwd();
 
     // 2. Load ENV variables (all of them)
     settingsState.sources.env = { ...process.env };
@@ -70,7 +81,7 @@ export function refreshSettings(workingDir?: string): void {
     }
 
     // 4. Load global config
-    const globalPath = path.join(os.homedir(), '.taraproject', 'config.json');
+    const globalPath = getGlobalConfigPath();
     try {
         const content = fs.readFileSync(globalPath, 'utf-8');
         settingsState.sources.global = JSON.parse(content);
@@ -112,6 +123,11 @@ export function getRawValue(key: string, source: 'env' | 'project' | 'global'): 
  * @returns The resolved setting value, default value, or undefined
  */
 export function getSetting(key: string, defaultValue?: any): any {
+    // 0. check loaded state
+    if (!isSettingsLoaded()) {
+        return defaultValue;
+    }
+
     // 1. Get aliases and source priority for this key
     const entry = SETTING_REGISTRY?.[key];
     const aliases = entry?.aliases || [key];
@@ -136,7 +152,7 @@ export function getSetting(key: string, defaultValue?: any): any {
  *
  * @returns true if refreshSettings() has been called, false otherwise
  */
-export function isLoaded(): boolean {
+export function isSettingsLoaded(): boolean {
     return settingsState.loaded;
 }
 
