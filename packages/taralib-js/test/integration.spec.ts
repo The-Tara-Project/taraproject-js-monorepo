@@ -1,15 +1,20 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import {
     TaraRecord,
-    createTapeHandler,
+    TaraTapeHandler,
+    buildGlobalTapePath,
 } from '../src';
+import type { ITaraRecord } from '../src';
 
 describe('integration: create -> store -> read -> check', () => {
     const testTapeId = `integration-test-${Date.now()}`;
 
     afterEach(() => {
         try {
-            const tape = createTapeHandler(testTapeId);
+            const tape = new TaraTapeHandler(
+                testTapeId,
+                buildGlobalTapePath(testTapeId)
+            );
             tape.fileHandler.delete();
         } catch {
             // ignore cleanup errors
@@ -18,7 +23,10 @@ describe('integration: create -> store -> read -> check', () => {
 
     it('full workflow: create tape, add record, read back, verify content', async () => {
         // 1. Create a new tape
-        const tape = createTapeHandler(testTapeId);
+        const tape = new TaraTapeHandler(
+            testTapeId,
+            buildGlobalTapePath(testTapeId)
+        );
         tape.fileHandler.instantiate();
         const tapePath = tape.getPath();
         expect(tapePath).toContain(testTapeId);
@@ -44,7 +52,7 @@ describe('integration: create -> store -> read -> check', () => {
         expect(metadata.createdAt).toBeDefined();
 
         // 5. Read and verify records
-        const records: TaraRecord[] = [];
+        const records: ITaraRecord[] = [];
         await tape.fileHandler.readRecords(({ parsed }) => {
             records.push(parsed);
         });
@@ -62,7 +70,10 @@ describe('integration: create -> store -> read -> check', () => {
     });
 
     it('supports multiple records in sequence', async () => {
-        const tape = createTapeHandler(testTapeId);
+        const tape = new TaraTapeHandler(
+            testTapeId,
+            buildGlobalTapePath(testTapeId)
+        );
         tape.fileHandler.instantiate();
 
         // Add multiple records
@@ -77,7 +88,7 @@ describe('integration: create -> store -> read -> check', () => {
         }
 
         // Read and verify
-        const readRecords: TaraRecord[] = [];
+        const readRecords: ITaraRecord[] = [];
         await tape.fileHandler.readRecords(({ parsed }) => {
             readRecords.push(parsed);
         });

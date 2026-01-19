@@ -2,12 +2,12 @@ export interface TaraRecordMeta {
     id: string; // uuid4
 }
 
-export interface TaraRecord {
+export interface ITaraRecord {
     __tara: TaraRecordMeta;
     [key: string]: unknown;
 }
 
-export interface TaraTapeMetadata extends TaraRecord {
+export interface TaraTapeMetadata extends ITaraRecord {
     type: 'taralib/tape-metadata';
     tapeId: string;
     formatVersion: string;
@@ -16,7 +16,7 @@ export interface TaraTapeMetadata extends TaraRecord {
 
 
 export interface ReadRecordsCallbackArgs {
-    parsed: TaraRecord;
+    parsed: ITaraRecord;
     lineNumber: number;
     line: string;
 }

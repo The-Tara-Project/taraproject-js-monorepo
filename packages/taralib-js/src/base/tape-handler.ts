@@ -14,7 +14,10 @@ export class TaraTapeHandler {
     public readonly fileHandler: TapeFileHandler;
     public readonly gitHandler: TapeGitHandler;
 
-    constructor(tapeId: string, tapePath: string) {
+    constructor(
+        tapeId: string, 
+        tapePath: string = buildGlobalTapePath(tapeId)
+    ) {
         this.tapeId = tapeId;
         this.path = tapePath;
         this.fileHandler = new TapeFileHandler(this);
@@ -39,22 +42,8 @@ export class TaraTapeHandler {
 /**
  * Build the file path for a tape given its ID.
  */
-export function buildTapePath(tapeId: string): string {
+export function buildGlobalTapePath(tapeId: string): string {
     const tapesFolderPath = getTapesFolderPath();
     const tapeName = `${tapeId}.tara.jsonl`;
     return path.join(tapesFolderPath, tapeName);
-}
-
-/**
- * Create a new TaraTapeHandler handler.
- * If `tapePath` is not provided, it is constructed a global tape handler.
- * @param tapeId - The tape identifier
- * @param tapePath - path for the tape file
- * @returns A new TaraTapeHandler instance
- */
-export function createTapeHandler(
-    tapeId: string,
-    tapePath = buildTapePath(tapeId)
-): TaraTapeHandler {
-    return new TaraTapeHandler(tapeId, tapePath);
 }

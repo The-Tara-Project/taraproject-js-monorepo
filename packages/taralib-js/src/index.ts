@@ -1,5 +1,5 @@
 // Types
-export type { TaraRecordMeta, TaraTapeMetadata, SettingSource, SettingsState } from './base/types';
+export type { TaraRecordMeta, ITaraRecord, TaraTapeMetadata, SettingSource, SettingsState } from './base/types';
 
 
 // Home folder utilities
@@ -11,8 +11,7 @@ export { TaraRecord, isValidUuid4 } from './base/record';
 // Tape operations
 export {
     TaraTapeHandler,
-    createTapeHandler,
-    buildTapePath,
+    buildGlobalTapePath,
 } from './base/tape-handler';
 
 export { TapeFileHandler } from './base/tape-file-handler';

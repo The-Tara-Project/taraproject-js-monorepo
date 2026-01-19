@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as readline from 'readline';
 import { ensureTaraHome } from './home';
 import { TaraRecord } from './record';
-import type { ReadRecordsCallback, ReadRecordsCallbackArgs, TaraRecord as ITaraRecord, TaraTapeMetadata } from './types';
+import type { ReadRecordsCallback, ReadRecordsCallbackArgs, ITaraRecord, TaraTapeMetadata } from './types';
 import { TaraTapeHandler } from './tape-handler';
 
 const FORMAT_VERSION = '1.0.0';
@@ -55,15 +55,13 @@ export class TapeFileHandler {
     /**
      * Create tape metadata record.
      */
-    private _builtTapeMetadata(): TaraTapeMetadata {
-        const record = new TaraRecord({
+    private _builtTapeMetadata(): TaraRecord {
+        return new TaraRecord({
             type: 'taralib/tape-metadata',
             tapeId: this.tapeId,
             formatVersion: FORMAT_VERSION,
             createdAt: new Date().toISOString(),
         });
-
-        return record.toObject() as TaraTapeMetadata;
     }
 
     /**

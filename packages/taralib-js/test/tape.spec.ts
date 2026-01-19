@@ -3,13 +3,17 @@ import * as path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
     TaraRecord,
-    createTapeHandler,
+    TaraTapeHandler,
+    buildGlobalTapePath,
     getTapesFolderPath,
 } from '../src';
 
 describe('tape', () => {
     const testTapeId = `test-tape-${Date.now()}`;
-    const tape = createTapeHandler(testTapeId);
+    const tape = new TaraTapeHandler(
+        testTapeId,
+        buildGlobalTapePath(testTapeId)
+    );
 
     afterEach(() => {
         // Clean up test tape
@@ -29,7 +33,12 @@ describe('tape', () => {
 
     describe('appendRecord', () => {
         it('appends single record to tape', () => {
-            const testTape = createTapeHandler(`test-append-${Date.now()}`);
+            const _testTapeId = `test-append-${Date.now()}`;
+            const testTape = new TaraTapeHandler(
+                _testTapeId,
+                buildGlobalTapePath(_testTapeId)
+            );
+
             testTape.fileHandler.instantiate();
             const record = new TaraRecord({ data: 'test' });
             testTape.fileHandler.appendRecord(record);
@@ -41,7 +50,11 @@ describe('tape', () => {
         });
 
         it('appends multiple records in sequence', () => {
-            const testTape = createTapeHandler(`test-multi-${Date.now()}`);
+            const _testTapeId = `test-multi-${Date.now()}`;
+            const testTape = new TaraTapeHandler(
+                _testTapeId,
+                buildGlobalTapePath(_testTapeId)
+            );
             testTape.fileHandler.instantiate();
             const record1 = new TaraRecord({ data: 'first' });
             const record2 = new TaraRecord({ data: 'second' });
@@ -57,12 +70,20 @@ describe('tape', () => {
 
     describe('exists', () => {
         it('returns false for non-existent tape', () => {
-            const nonExistentTape = createTapeHandler(`non-existent-${Date.now()}`);
+            const _testTapeId = `non-existent-${Date.now()}`;
+            const nonExistentTape = new TaraTapeHandler(
+                _testTapeId,
+                buildGlobalTapePath(_testTapeId)
+            );
             expect(nonExistentTape.fileHandler.exists()).toBe(false);
         });
 
         it('returns true for existing tape', () => {
-            const testTape = createTapeHandler(`exists-test-${Date.now()}`);
+            const _testTapeId = `exists-test-${Date.now()}`;
+            const testTape = new TaraTapeHandler(
+                _testTapeId,
+                buildGlobalTapePath(_testTapeId)
+            );
             testTape.fileHandler.instantiate();
             expect(testTape.fileHandler.exists()).toBe(true);
             testTape.fileHandler.delete();
@@ -71,7 +92,11 @@ describe('tape', () => {
 
     describe('delete', () => {
         it('deletes existing tape', () => {
-            const testTape = createTapeHandler(`delete-test-${Date.now()}`);
+            const _testTapeId = `delete-test-${Date.now()}`;
+            const testTape = new TaraTapeHandler(
+                _testTapeId,
+                buildGlobalTapePath(_testTapeId)
+            );
             testTape.fileHandler.instantiate();
             expect(testTape.fileHandler.exists()).toBe(true);
             testTape.fileHandler.delete();
@@ -79,19 +104,26 @@ describe('tape', () => {
         });
 
         it('does not throw for non-existent tape', () => {
-            const nonExistentTape = createTapeHandler(`non-existent-delete-${Date.now()}`);
+            const _testTapeId = `non-existent-delete-${Date.now()}`;
+            const nonExistentTape = new TaraTapeHandler(
+                _testTapeId,
+                buildGlobalTapePath(_testTapeId)
+            );
             expect(() => nonExistentTape.fileHandler.delete()).not.toThrow();
         });
     });
 
-    describe('createTapeHandler', () => {
+    describe('new TapeHandler', () => {
         it('creates a lightweight tape handler', () => {
             expect(tape.getTapeId()).toBe(testTapeId);
             expect(tape.getPath()).toBe(path.join(getTapesFolderPath(), `${testTapeId}.tara.jsonl`));
         });
 
         it('does not create file or perform I/O', () => {
-            const createdTape = createTapeHandler(testTapeId);
+            const createdTape = new TaraTapeHandler(
+                testTapeId,
+                buildGlobalTapePath(testTapeId)
+            );
             expect(fs.existsSync(createdTape.getPath())).toBe(false);
         });
     });
@@ -136,7 +168,10 @@ describe('tape', () => {
         });
 
         it('stops iteration when callback returns "stop"', async () => {
-            const createdTape = createTapeHandler(testTapeId);
+            const createdTape = new TaraTapeHandler(
+                testTapeId,
+                buildGlobalTapePath(testTapeId)
+            );
             createdTape.fileHandler.instantiate();
             for (let i = 0; i < 10; i++) {
                 createdTape.fileHandler.appendRecord(new TaraRecord({ index: i }));
@@ -154,20 +189,26 @@ describe('tape', () => {
         });
 
         it('throws error on corrupted record', async () => {
-            const createdTape = createTapeHandler(testTapeId);
+            const createdTape = new TaraTapeHandler(
+                testTapeId,
+                buildGlobalTapePath(testTapeId)
+            );
             createdTape.fileHandler.instantiate();
             createdTape.fileHandler.appendRecord(new TaraRecord({ data: 'valid' }));
             fs.appendFileSync(createdTape.getPath(), 'invalid json\n', 'utf-8');
 
             await expect(async () => {
-                await createdTape.fileHandler.readRecords(() => {});
+                await createdTape.fileHandler.readRecords(() => { });
             }).rejects.toThrow('Corrupted record');
         });
     });
 
     describe('appendRecordBatch', () => {
         it('appends multiple records in single operation', () => {
-            const createdTape = createTapeHandler(testTapeId);
+            const createdTape = new TaraTapeHandler(
+                testTapeId,
+                buildGlobalTapePath(testTapeId)
+            );
             createdTape.fileHandler.instantiate();
             const records = [
                 new TaraRecord({ data: 'batch1' }),
@@ -183,7 +224,10 @@ describe('tape', () => {
         });
 
         it('appends all records without validation', () => {
-            const createdTape = createTapeHandler(testTapeId);
+            const createdTape = new TaraTapeHandler(
+                testTapeId,
+                buildGlobalTapePath(testTapeId)
+            );
             createdTape.fileHandler.instantiate();
             const records = [
                 new TaraRecord({ data: 'valid1' }),
@@ -205,7 +249,10 @@ describe('tape', () => {
 
     describe('readMetadata', () => {
         it('reads metadata from tape', async () => {
-            const createdTape = createTapeHandler(testTapeId);
+            const createdTape = new TaraTapeHandler(
+                testTapeId,
+                buildGlobalTapePath(testTapeId)
+            );
             createdTape.fileHandler.instantiate();
 
             const metadata = await createdTape.fileHandler.readMetadata();
@@ -215,7 +262,11 @@ describe('tape', () => {
         });
 
         it('throws error if tape does not exist', async () => {
-            const createdTape = createTapeHandler('non-existent-tape');
+            const _testTapeId = `non-existent-tape`;
+            const createdTape = new TaraTapeHandler(
+                _testTapeId,
+                buildGlobalTapePath(_testTapeId)
+            );
             await expect(createdTape.fileHandler.readMetadata()).rejects.toThrow();
         });
     });

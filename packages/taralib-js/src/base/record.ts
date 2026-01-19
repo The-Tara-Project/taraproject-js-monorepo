@@ -1,5 +1,5 @@
 import * as crypto from 'crypto';
-import type { TaraRecord as ITaraRecord } from './types';
+import type { ITaraRecord } from './types';
 
 const UUID4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -8,9 +8,9 @@ const UUID4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
  * Records are immutable after creation - no new custom data can be added.
  * Internal state can change for system operations (serialization caching, validation state).
  */
-export class TaraRecord {
+export class TaraRecord<T extends Record<string, unknown> = Record<string, unknown>> {
     private readonly id: string;
-    private readonly content: Readonly<Record<string, unknown>>;
+    private readonly content: Readonly<T>;
     private serializedCache?: string;
 
     /**
@@ -25,7 +25,7 @@ export class TaraRecord {
      * @param content - The record content (will be frozen for immutability)
      * @param id - Optional UUID (generated if not provided)
      */
-    constructor(content: Record<string, unknown> = {}, id?: string) {
+    constructor(content: T = {} as T, id?: string) {
         this.id = id || crypto.randomUUID();
 
         // Validate ID if provided
@@ -34,7 +34,7 @@ export class TaraRecord {
         }
 
         // Freeze content for immutability
-        this.content = Object.freeze({ ...content });
+        this.content = Object.freeze({ ...content }) as Readonly<T>;
     }
 
     /**
@@ -47,7 +47,7 @@ export class TaraRecord {
     /**
      * Get the record content (frozen, read-only).
      */
-    getContent(): Readonly<Record<string, unknown>> {
+    getContent(): Readonly<T> {
         return this.content;
     }
 
@@ -55,7 +55,7 @@ export class TaraRecord {
      * Convert the record to a plain object with __tara metadata.
      * This is the format used for serialization and external access.
      */
-    toObject(): Record<string, unknown> {
+    toObject(): T & { __tara: { id: string } } {
         return {
             ...this.content,
             __tara: { id: this.id }
@@ -95,7 +95,7 @@ export class TaraRecord {
      * Create a TaraRecord from a plain object.
      * The object must have a valid __tara.id field.
      */
-    static fromObject(obj: Record<string, unknown>): TaraRecord {
+    static fromObject<T extends Record<string, unknown>>(obj: T & Record<string, unknown>): TaraRecord<T> {
         if (!TaraRecord._isValidRecordObject(obj)) {
             throw new Error('Invalid record: missing or invalid __tara.id');
         }
@@ -106,13 +106,13 @@ export class TaraRecord {
         // Extract content (everything except __tara)
         const { __tara, ...content } = obj;
 
-        return new TaraRecord(content, id);
+        return new TaraRecord<T>(content as T, id);
     }
 
     /**
      * Parse a JSON string into a TaraRecord.
      */
-    static fromJSON(json: string): TaraRecord {
+    static fromJSON<T extends Record<string, unknown>>(json: string): TaraRecord<T> {
         let parsed: unknown;
         try {
             parsed = JSON.parse(json);
@@ -124,7 +124,7 @@ export class TaraRecord {
             throw new Error('Invalid record: parsed JSON is not an object');
         }
 
-        return TaraRecord.fromObject(parsed as Record<string, unknown>);
+        return TaraRecord.fromObject<T>(parsed as T & Record<string, unknown>);
     }
 
     /**
