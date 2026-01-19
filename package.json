@@ -3,7 +3,8 @@
     "private": true,
     "workspaces": [
         "packages/taralib-js",
-        "packages/tara-cli"
+        "packages/tara-cli",
+        "packages/vscode-tara-puller-001-extenssion"
     ],
     "scripts": {
         "build": "npm run build --workspaces",

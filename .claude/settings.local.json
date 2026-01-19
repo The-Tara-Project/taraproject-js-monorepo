@@ -11,7 +11,27 @@
       "Bash(wc:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(npm run test:*)"
+      "Bash(npm run test:*)",
+      "Bash(grep:*)",
+      "Bash(npm ls:*)",
+      "Bash(node:*)",
+      "Bash(chmod:*)",
+      "Bash(/Users/pereiro/Documents/js/taraproject-js-monorepo/packages/tara-cli/dist/cli.js tape list:*)",
+      "Bash(CLI=/Users/pereiro/Documents/js/taraproject-js-monorepo/packages/tara-cli/dist/cli.js)",
+      "Bash($CLI tape list)",
+      "Bash($CLI tape info my-journal)",
+      "Bash($CLI tape count my-journal)",
+      "Bash($CLI tape list --json)",
+      "Bash(./packages/tara-cli/dist/cli.js tape list:*)",
+      "Bash(./packages/tara-cli/dist/cli.js git status:*)",
+      "Bash(./packages/tara-cli/dist/cli.js tape git init my-journal)",
+      "Bash(git init:*)",
+      "Bash(./packages/tara-cli/dist/cli.js git log:*)",
+      "Bash(~/.taraproject/tapes/my-journal.tara.jsonl)",
+      "Bash(./packages/tara-cli/dist/cli.js git diff:*)",
+      "Bash(./packages/tara-cli/dist/cli.js:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npm run dev-install:*)"
     ]
   }
 }
