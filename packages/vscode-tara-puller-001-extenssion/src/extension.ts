@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import { execSync } from 'child_process';
 import { TaraTapeHandler, TaraRecord, ensureTaraHome } from '@jose_pereiro/taralib-js';
 
 const TAPE_ID = 'tara-puller-001';
@@ -13,6 +15,39 @@ interface PullerState {
     enabled: boolean;
 }
 
+interface GitInfo {
+    isRepo: boolean;
+    repoRoot?: string;
+    branch?: string;
+    commitHash?: string;
+    commitMessage?: string;
+    remoteUrl?: string;
+    isDirty?: boolean;
+}
+
+interface FileContext {
+    path: string;
+    relativePath?: string;
+    fileName: string;
+    languageId?: string;
+    isActive: boolean;
+    isPinned: boolean;
+    git?: GitInfo;
+}
+
+interface WorkspaceContext {
+    name?: string;
+    folders: string[];
+}
+
+interface PullContext {
+    activeFile?: FileContext;
+    openFiles: FileContext[];
+    pinnedFiles: FileContext[];
+    workspace: WorkspaceContext;
+    timestamp: string;
+}
+
 const state: PullerState = {
     lastPromptTime: 0,
     isWindowFocused: true,
@@ -22,6 +57,153 @@ const state: PullerState = {
     checkIntervalMs: 10 * 1000,
     enabled: true,
 };
+
+// Cache git info per repo root to avoid repeated git calls
+const gitCache: Map<string, { info: GitInfo; timestamp: number }> = new Map();
+const GIT_CACHE_TTL = 5000; // 5 seconds
+
+/**
+ * Run a git command in a directory
+ */
+function runGitCommand(cwd: string, args: string): string | null {
+    try {
+        return execSync(`git ${args}`, {
+            cwd,
+            encoding: 'utf-8',
+            stdio: ['pipe', 'pipe', 'pipe']
+        }).trim();
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Get git info for a file path
+ */
+function getGitInfo(filePath: string): GitInfo {
+    const dir = path.dirname(filePath);
+
+    // Check if inside a git repo
+    const repoRoot = runGitCommand(dir, 'rev-parse --show-toplevel');
+    if (!repoRoot) {
+        return { isRepo: false };
+    }
+
+    // Check cache
+    const cached = gitCache.get(repoRoot);
+    if (cached && Date.now() - cached.timestamp < GIT_CACHE_TTL) {
+        return cached.info;
+    }
+
+    // Get git info
+    const branch = runGitCommand(repoRoot, 'rev-parse --abbrev-ref HEAD');
+    const commitHash = runGitCommand(repoRoot, 'rev-parse HEAD');
+    const commitMessage = runGitCommand(repoRoot, 'log -1 --pretty=%s');
+    const remoteUrl = runGitCommand(repoRoot, 'config --get remote.origin.url');
+    const status = runGitCommand(repoRoot, 'status --porcelain');
+    const isDirty = status !== null && status.length > 0;
+
+    const info: GitInfo = {
+        isRepo: true,
+        repoRoot,
+        branch: branch ?? undefined,
+        commitHash: commitHash ?? undefined,
+        commitMessage: commitMessage ?? undefined,
+        remoteUrl: remoteUrl ?? undefined,
+        isDirty,
+    };
+
+    // Cache the result
+    gitCache.set(repoRoot, { info, timestamp: Date.now() });
+
+    return info;
+}
+
+/**
+ * Get file context from a tab
+ */
+function getFileContextFromTab(tab: vscode.Tab, activeUri?: vscode.Uri): FileContext | null {
+    // Check if tab has a URI (text document)
+    const input = tab.input;
+    if (!input || typeof input !== 'object' || !('uri' in input)) {
+        return null;
+    }
+
+    const uri = (input as { uri: vscode.Uri }).uri;
+    if (uri.scheme !== 'file') {
+        return null;
+    }
+
+    const filePath = uri.fsPath;
+    const isActive = activeUri?.fsPath === filePath;
+    const isPinned = tab.isPinned;
+
+    // Get workspace folder for relative path
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
+    const relativePath = workspaceFolder
+        ? path.relative(workspaceFolder.uri.fsPath, filePath)
+        : undefined;
+
+    // Get language ID from active document if available
+    let languageId: string | undefined;
+    if (isActive && vscode.window.activeTextEditor) {
+        languageId = vscode.window.activeTextEditor.document.languageId;
+    }
+
+    return {
+        path: filePath,
+        relativePath,
+        fileName: path.basename(filePath),
+        languageId,
+        isActive,
+        isPinned,
+        git: getGitInfo(filePath),
+    };
+}
+
+/**
+ * Gather all context about the current VS Code state
+ */
+function gatherContext(): PullContext {
+    const context: PullContext = {
+        openFiles: [],
+        pinnedFiles: [],
+        workspace: {
+            name: vscode.workspace.name,
+            folders: vscode.workspace.workspaceFolders?.map(f => f.uri.fsPath) ?? [],
+        },
+        timestamp: new Date().toISOString(),
+    };
+
+    // Get active editor URI
+    const activeUri = vscode.window.activeTextEditor?.document.uri;
+
+    // Track seen files to avoid duplicates
+    const seenPaths = new Set<string>();
+
+    // Iterate through all tab groups
+    for (const tabGroup of vscode.window.tabGroups.all) {
+        for (const tab of tabGroup.tabs) {
+            const fileContext = getFileContextFromTab(tab, activeUri);
+            if (!fileContext || seenPaths.has(fileContext.path)) {
+                continue;
+            }
+            seenPaths.add(fileContext.path);
+
+            context.openFiles.push(fileContext);
+
+            if (fileContext.isPinned) {
+                context.pinnedFiles.push(fileContext);
+            }
+
+            if (fileContext.isActive) {
+                context.activeFile = fileContext;
+            }
+        }
+    }
+
+    return context;
+}
 
 /**
  * Get configuration value
@@ -81,9 +263,9 @@ function isEnabled(): boolean {
 }
 
 /**
- * Record a pull entry to the tape
+ * Record a pull entry to the tape with full context
  */
-function recordEntry(response: string | null, dismissed: boolean): void {
+function recordEntry(response: string | null, dismissed: boolean, context: PullContext): void {
     if (!state.tape) {
         return;
     }
@@ -93,6 +275,7 @@ function recordEntry(response: string | null, dismissed: boolean): void {
         timestamp: new Date().toISOString(),
         dismissed,
         response: response ?? null,
+        context,
     });
 
     state.tape.fileHandler.appendRecord(record);
@@ -105,6 +288,9 @@ async function showPullDialog(): Promise<void> {
     // Update last prompt time
     state.lastPromptTime = Date.now();
 
+    // Gather context BEFORE showing dialog (captures state at prompt time)
+    const context = gatherContext();
+
     const response = await vscode.window.showInputBox({
         title: 'What are you doing?',
         prompt: 'Describe your current activity',
@@ -114,11 +300,11 @@ async function showPullDialog(): Promise<void> {
 
     if (response === undefined) {
         // User dismissed (pressed Escape or clicked away)
-        recordEntry(null, true);
+        recordEntry(null, true, context);
         vscode.window.setStatusBarMessage('Tara Puller: Dismissed', 3000);
     } else {
         // User submitted (even if empty string)
-        recordEntry(response, false);
+        recordEntry(response, false, context);
         vscode.window.setStatusBarMessage('Tara Puller: Recorded', 3000);
     }
 }
@@ -218,6 +404,7 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('taraPuller.showStatus', () => {
             const timeSinceLastPrompt = Date.now() - state.lastPromptTime;
             const timeUntilNext = Math.max(0, state.minIntervalMs - timeSinceLastPrompt);
+            const ctx = gatherContext();
 
             vscode.window.showInformationMessage(
                 `Tara Puller Status:\n` +
@@ -225,6 +412,8 @@ export function activate(context: vscode.ExtensionContext): void {
                 `• Window focused: ${state.isWindowFocused}\n` +
                 `• Min interval: ${state.minIntervalMs / 1000}s\n` +
                 `• Time until next prompt: ${Math.ceil(timeUntilNext / 1000)}s\n` +
+                `• Open files: ${ctx.openFiles.length}\n` +
+                `• Pinned files: ${ctx.pinnedFiles.length}\n` +
                 `• Tape: ${TAPE_ID}`
             );
         })
