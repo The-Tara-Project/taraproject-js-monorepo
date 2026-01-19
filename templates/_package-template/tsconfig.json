@@ -1,0 +1,36 @@
+{
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        /* Core library layout */
+        "rootDir": "src",
+        "outDir": "dist",
+        /* Declarations (library contract) */
+        "declaration": true,
+        "declarationMap": true,
+        "emitDeclarationOnly": true,
+        /* Source maps for types */
+        "inlineSourceMap": false,
+        "inlineSources": false,
+        /* Module / TS behavior */
+        "allowJs": false,
+        "isolatedModules": false,
+        /* Resolution */
+        "baseUrl": ".",
+        "typeRoots": [
+            "./node_modules/@types",
+            "./types"
+        ]
+    },
+    "include": [
+        "src/index.ts",
+        "src/**/*.ts",
+        "types/**/*"
+, "src/source.CitationJS.fetch.ts"    ],
+    "exclude": [
+        "node_modules",
+        "dist",
+        "_DEPRECATED",
+        "**/*.test.ts",
+        "**/*.spec.ts"
+    ]
+}
