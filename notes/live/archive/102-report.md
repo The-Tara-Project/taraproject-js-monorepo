@@ -2,7 +2,7 @@
 Date: 2026-01-15
 
 ## Summary
-This report compares the specifications in `notes-index/` with the actual implementation in `packages/taralib-js/src`. The implementation has several gaps and mismatches with the specification requirements.
+This report compares the specifications in `notes/index/` with the actual implementation in `packages/taralib-js/src`. The implementation has several gaps and mismatches with the specification requirements.
 
 ---
 

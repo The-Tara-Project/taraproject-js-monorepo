@@ -6,7 +6,7 @@
 - So, its implementation should be 'lazy'
 - The tape should never hold all records in memory.
 - We should read records from disk using an streaming approach.
-- output the plan as `notes-live/002-plan.md`.
+- output the plan as `notes/live/002-plan.md`.
 
 ## Specific Instructions
 - Review current implementation of Tara Tape in `packages/dev/src/lib/tape/`.
@@ -15,11 +15,11 @@
 - Based on the answers, finalize the refactor plan with detailed steps and milestones.
 - Keep the plan concise and focused on the essential tasks needed to refactor the tape implementation.
 - Do not include implementation code in the plan.
-- Ensure the plan adheres to the general design principles outlined in `notes-index/taralib-design-principles.md`.
+- Ensure the plan adheres to the general design principles outlined in `notes/index/taralib-design-principles.md`.
 - Include testing and validation steps to ensure the refactored implementation meets the required functionality.
 - No backward compatibility is needed; a clean break is acceptable.
 - Change only what is necessary to achieve the refactoring.
-- Save the final plan in `notes-live/002-plan.md`.
+- Save the final plan in `notes/live/002-plan.md`.
 
 ## Code snippet
 Implement following this workflow:

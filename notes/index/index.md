@@ -13,18 +13,18 @@
 - Use the "Open Questions" section to track unresolved issues.
 
 ## Stay out
-- notes at `notes-inbox/` are for human consumption only.
+- notes at `notes/inbox/` are for human consumption only.
     - write access: NEVER.
     - read access: NEVER: only when EXPLICITLY instructed.
 
 ## Map of notes
 
-- `notes-index/taraproject.vision.md` — The Tara Project vision and general goals
-- `notes-index/taralib-design-principles.md` — General design principles for Tara Library
-- `notes-index/tarason-fullstack.md` — TaraSon Full Stack architecture overview
-- `notes-index/tara-record.spec.md` — Tara Record format specification
-- `notes-index/tara-tape.spec.md` — Tara Tape format specification
-- `notes-index/specs.spec.md` — Spec notes specifications guidelines
+- `notes/index/taraproject.vision.md` — The Tara Project vision and general goals
+- `notes/index/taralib-design-principles.md` — General design principles for Tara Library
+- `notes/index/tarason-fullstack.md` — TaraSon Full Stack architecture overview
+- `notes/index/tara-record.spec.md` — Tara Record format specification
+- `notes/index/tara-tape.spec.md` — Tara Tape format specification
+- `notes/index/specs.spec.md` — Spec notes specifications guidelines
 
 ## Open Questions (keep short)
 - Q1: <question> (owner: <name>, due: <date/none>)

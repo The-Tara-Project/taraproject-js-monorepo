@@ -1,8 +1,8 @@
 # Tara Record Spec Improvement Report
 
 **Date**: 2026-01-18
-**Subject**: Evaluation of `notes-index/tara-record.spec.md`
-**Evaluated Against**: `notes-index/specs.spec.md`
+**Subject**: Evaluation of `notes/index/tara-record.spec.md`
+**Evaluated Against**: `notes/index/specs.spec.md`
 
 ## Executive Summary
 
