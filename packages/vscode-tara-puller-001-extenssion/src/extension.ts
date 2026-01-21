@@ -1,9 +1,20 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { TaraTapeHandler, TaraRecord, ensureTaraHome } from '@jose_pereiro/taralib-js';
+import { TaraTapeHandler, TaraRecord, ensureTaraHome, loadRandomQuestion, listQuestionFiles, ensureAppQuestionsFolder, saveQuestion, TaraQuestion } from '@jose_pereiro/taralib-js';
 
-const TAPE_ID = 'tara-puller-001';
+const APP_NAME = 'tara-puller-001';
+const CONFIRM_PREFIX = '...';
+
+/**
+ * Get the current tape ID based on the current date (YYYYMM-tara-puller-001)
+ */
+function currentTapeId(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return `${year}${month}-tara-puller-001`;
+}
 
 interface PullerState {
     lastPromptTime: number;
@@ -231,13 +242,33 @@ function loadSettings(): void {
 }
 
 /**
- * Initialize the tape handler
+ * Initialize the tape handler with the current tape ID
  */
 function initTape(): TaraTapeHandler {
     ensureTaraHome();
-    const tape = new TaraTapeHandler(TAPE_ID);
+    const tape = new TaraTapeHandler(currentTapeId());
     tape.fileHandler.instantiate();
     return tape;
+}
+
+/**
+ * Ensure the questions folder exists and has at least one question.
+ * Creates the default "What are you doing?" question if none exist.
+ */
+function ensureInitialQuestions(): void {
+    ensureAppQuestionsFolder(APP_NAME);
+
+    const existingQuestions = listQuestionFiles(APP_NAME);
+    if (existingQuestions.length === 0) {
+        // Create the default question
+        const defaultQuestion: TaraQuestion = {
+            question: 'What are you doing?',
+            prompt: `Describe your current activity (end with ${CONFIRM_PREFIX} to submit, or type just ${CONFIRM_PREFIX} to dismiss)`,
+            placeholder: `e.g., Working on feature X${CONFIRM_PREFIX}`,
+            pullerName: APP_NAME,
+        };
+        saveQuestion(APP_NAME, 'what-are-you-doing', defaultQuestion);
+    }
 }
 
 /**
@@ -282,31 +313,86 @@ function recordEntry(response: string | null, dismissed: boolean, context: PullC
 }
 
 /**
- * Show the "What are you doing?" dialog
+ * Load a question from the questions folder, or return null if loading fails
  */
-async function showPullDialog(): Promise<void> {
-    // Update last prompt time
+function loadQuestionForDialog(): TaraQuestion | null {
+    try {
+        return loadRandomQuestion(APP_NAME);
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Schedule a retry of the prompt after 5 seconds
+ */
+function scheduleRetry(): void {
+    setTimeout(() => {
+        if (isEnabled() && isUserActive()) {
+            showPullDialog();
+        }
+    }, 5000);
+}
+
+/**
+ * Show the pull dialog with a question loaded from files
+ * Returns true if dialog was shown, false if skipped due to loading failure
+ */
+async function showPullDialog(): Promise<boolean> {
+    // Refresh tape to use current month's tape
+    state.tape = initTape();
+
+    // Load question from file
+    const question = loadQuestionForDialog();
+
+    // If loading fails and no fallback configured, skip this iteration
+    if (!question) {
+        vscode.window.setStatusBarMessage('Tara Puller: No questions configured, skipping', 3000);
+        return false;
+    }
+
+    // Update last prompt time only when we actually show the dialog
     state.lastPromptTime = Date.now();
 
     // Gather context BEFORE showing dialog (captures state at prompt time)
     const context = gatherContext();
 
     const response = await vscode.window.showInputBox({
-        title: 'What are you doing?',
-        prompt: 'Describe your current activity',
-        placeHolder: 'e.g., Working on feature X, debugging issue Y...',
+        title: question.question,
+        prompt: question.prompt ?? 'Enter your response',
+        placeHolder: question.placeholder ?? '',
         ignoreFocusOut: false,
+        validateInput: (value) => {
+            // Accept only "..." (to dismiss) or text ending with "..." (to submit)
+            if (value === CONFIRM_PREFIX) {
+                return null; // Allow just "..." to explicitly dismiss
+            }
+            if (value.length > 0 && value.endsWith(CONFIRM_PREFIX)) {
+                return null; // Allow content ending with "..."
+            }
+            if (value.length === 0) {
+                return `Type ${CONFIRM_PREFIX} to dismiss, or enter your message ending with ${CONFIRM_PREFIX}`;
+            }
+            return `End your message with ${CONFIRM_PREFIX} to submit, or type just ${CONFIRM_PREFIX} to dismiss`;
+        }
     });
 
-    if (response === undefined) {
-        // User dismissed (pressed Escape or clicked away)
+    if (response === undefined || response === '') {
+        // User dismissed via ESC, click-outside, or empty input → Schedule retry
+        vscode.window.setStatusBarMessage('Tara Puller: Retrying in 5s', 3000);
+        scheduleRetry();
+    } else if (response === CONFIRM_PREFIX) {
+        // User explicitly dismissed by typing just "..."
         recordEntry(null, true, context);
         vscode.window.setStatusBarMessage('Tara Puller: Dismissed', 3000);
     } else {
-        // User submitted (even if empty string)
-        recordEntry(response, false, context);
+        // User submitted content - strip the CONFIRM_PREFIX suffix
+        const cleanResponse = response.endsWith(CONFIRM_PREFIX) ? response.slice(0, -CONFIRM_PREFIX.length) : response;
+        recordEntry(cleanResponse, false, context);
         vscode.window.setStatusBarMessage('Tara Puller: Recorded', 3000);
     }
+
+    return true;
 }
 
 /**
@@ -372,8 +458,8 @@ export function activate(context: vscode.ExtensionContext): void {
     // Load settings
     loadSettings();
 
-    // Initialize tape
-    state.tape = initTape();
+    // Ensure questions folder exists with initial question
+    ensureInitialQuestions();
 
     // Track window focus state
     context.subscriptions.push(
@@ -414,7 +500,7 @@ export function activate(context: vscode.ExtensionContext): void {
                 `• Time until next prompt: ${Math.ceil(timeUntilNext / 1000)}s\n` +
                 `• Open files: ${ctx.openFiles.length}\n` +
                 `• Pinned files: ${ctx.pinnedFiles.length}\n` +
-                `• Tape: ${TAPE_ID}`
+                `• Tape: ${currentTapeId()}`
             );
         })
     );

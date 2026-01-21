@@ -31,7 +31,8 @@
       "Bash(./packages/tara-cli/dist/cli.js git diff:*)",
       "Bash(./packages/tara-cli/dist/cli.js:*)",
       "Bash(npx vitest:*)",
-      "Bash(npm run dev-install:*)"
+      "Bash(npm run dev-install:*)",
+      "Bash(git -C /Users/pereiro/Documents/js/taraproject-js-monorepo log --oneline -15)"
     ]
   }
 }

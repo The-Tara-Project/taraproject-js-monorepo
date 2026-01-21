@@ -18,7 +18,7 @@ function main() {
     const vsixName = `${pkg.name}-${pkg.version}.vsix`;
     const vsixPath = path.join(ROOT, vsixName);
 
-    console.log('=== Tara Puller Dev Install ===\n');
+    console.log('=== Tara Reader Dev Install ===\n');
 
     // 1. Build
     console.log('[1/4] Building...');

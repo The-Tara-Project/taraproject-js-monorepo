@@ -22,3 +22,16 @@ export { refreshSettings, getSetting, getRawValue, isSettingsLoaded } from './ba
 
 // Git operations
 export { GitHandler } from './base/git';
+
+// App handler
+export type { TaraQuestion } from './base/app-handler';
+export {
+    getAppsFolderPath,
+    getAppFolderPath,
+    getAppQuestionsFolderPath,
+    ensureAppQuestionsFolder,
+    listQuestionFiles,
+    loadQuestion,
+    loadRandomQuestion,
+    saveQuestion,
+} from './base/app-handler';
