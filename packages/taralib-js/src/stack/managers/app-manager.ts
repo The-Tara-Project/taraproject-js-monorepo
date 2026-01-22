@@ -1,8 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { TaraStack } from '../tara-project';
+import type { TaraStack } from '../tara-stack';
 import { QuestionManager } from './question-manager';
-import { getAppsFolderPath, getAppFolderPath } from '../base/app-handler';
+import { getAppFolderPath } from '../../base/app-handler';
 
 /**
  * AppManager provides high-level operations for managing Tara apps.
@@ -15,7 +15,7 @@ export class AppManager {
    * @returns Array of app names
    */
   list(): string[] {
-    const appsPath = getAppsFolderPath();
+    const appsPath = this.context.global.home.getAppsPath();
     if (!fs.existsSync(appsPath)) return [];
 
     return fs.readdirSync(appsPath).filter(f => {

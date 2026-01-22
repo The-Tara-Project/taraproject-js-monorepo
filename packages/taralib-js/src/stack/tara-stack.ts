@@ -1,6 +1,6 @@
 import { GlobalScope } from './scopes/global-scope';
 import { LocalScope } from './scopes/local-scope';
-import { refreshSettings } from './base/settings';
+import { SettingsHandler } from '../base/settings';
 
 export interface TaraStackOptions {
   debug?: boolean;
@@ -26,6 +26,7 @@ export interface TaraStackOptions {
  * ```
  */
 export class TaraStack {
+  readonly settings: SettingsHandler;
   readonly global: GlobalScope;
   readonly local: LocalScope;
 
@@ -38,16 +39,13 @@ export class TaraStack {
       process.env.TARA_DEBUG = String(options.debug);
     }
 
-    // Refresh the singleton settings (for backward compatibility with code using deprecated functions)
-    // This ensures home.ts functions work correctly
-    refreshSettings(options?.workingDir);
+    // Initialize settings handler (used by scopes)
+    this.settings = new SettingsHandler();
+    this.settings.refresh(options?.workingDir);
 
     // Initialize scopes
     this.global = new GlobalScope(this);
     this.local = new LocalScope(this, options?.workingDir);
-
-    // Refresh settings in the global scope manager as well
-    this.global.settings.refresh(options?.workingDir);
   }
 
   /**

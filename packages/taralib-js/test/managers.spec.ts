@@ -194,7 +194,7 @@ describe('RecordManager', () => {
   });
 });
 
-describe('SettingsManager', () => {
+describe('SettingsHandler', () => {
   let tara: TaraStack;
 
   beforeEach(() => {
@@ -205,16 +205,16 @@ describe('SettingsManager', () => {
   afterEach(teardownTestEnv);
 
   it('should check if settings are loaded', () => {
-    expect(tara.global.settings.isLoaded()).toBe(true);
+    expect(tara.settings.isLoaded()).toBe(true);
   });
 
   it('should get settings with default', () => {
-    const value = tara.global.settings.get('nonexistent', 'default-value');
+    const value = tara.settings.getSetting('nonexistent', 'default-value');
     expect(value).toBe('default-value');
   });
 
   it('should refresh settings', () => {
-    expect(() => tara.global.settings.refresh()).not.toThrow();
+    expect(() => tara.settings.refresh()).not.toThrow();
   });
 });
 

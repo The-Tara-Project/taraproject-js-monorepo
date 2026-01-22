@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { TaraStack } from '../src/tara-project';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { TaraStack } from '../src/stack/tara-stack';
 import { setupTestEnv, teardownTestEnv } from './utils';
 
 describe('TaraStack', () => {

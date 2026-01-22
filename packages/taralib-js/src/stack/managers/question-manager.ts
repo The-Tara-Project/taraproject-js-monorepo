@@ -1,14 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { TaraStack } from '../tara-project';
-import type { TaraQuestion } from '../base/app-handler';
+import type { TaraStack } from '../tara-stack';
+import type { TaraQuestion } from '../../base/app-handler';
 import {
   getAppQuestionsFolderPath,
   listQuestionFiles,
   loadQuestion as appHandlerLoadQuestion,
   loadRandomQuestion as appHandlerLoadRandomQuestion,
   saveQuestion as appHandlerSaveQuestion,
-} from '../base/app-handler';
+} from '../../base/app-handler';
 
 /**
  * QuestionManager provides operations for managing questions within a specific app.

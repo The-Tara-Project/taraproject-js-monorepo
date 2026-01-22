@@ -14,7 +14,6 @@ describe('TaraStack Scopes', () => {
       expect(tara.global.tapes).toBeDefined();
       expect(tara.global.apps).toBeDefined();
       expect(tara.global.records).toBeDefined();
-      expect(tara.global.settings).toBeDefined();
       expect(tara.global.home).toBeDefined();
     });
 
@@ -35,7 +34,6 @@ describe('TaraStack Scopes', () => {
       expect(tara.local.tapes).toBeDefined();
       expect(tara.local.apps).toBeDefined();
       expect(tara.local.records).toBeDefined();
-      expect(tara.local.settings).toBeDefined();
       expect(tara.local.home).toBeDefined();
     });
 
@@ -78,6 +76,19 @@ describe('TaraStack Scopes', () => {
       // Must use scopes
       expect(tara.global.tapes).toBeDefined();
       expect(tara.local.tapes).toBeDefined();
+    });
+  });
+
+  describe('Settings at Stack Level', () => {
+    it('should provide settings at stack level, not in scopes', () => {
+      const tara = new TaraStack();
+
+      // Settings are at stack level
+      expect(tara.settings).toBeDefined();
+
+      // Not in scopes
+      expect((tara.global as any).settings).toBeUndefined();
+      expect((tara.local as any).settings).toBeUndefined();
     });
   });
 });

@@ -1,6 +1,5 @@
 import * as path from 'path';
 import { GitHandler } from './git';
-import { getTapesFolderPath } from './home';
 import { TapeHandler } from './tape-handler';
 
 /**

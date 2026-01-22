@@ -1,6 +1,6 @@
 import * as fs from 'fs';
+import * as path from 'path';
 import * as readline from 'readline';
-import { ensureTaraHome } from './home';
 import { TaraRecord } from './record';
 import type { ReadRecordsCallback, ReadRecordsCallbackArgs, ITaraRecord, ITapeMetadata } from './types';
 import { TapeHandler } from './tape-handler';
@@ -70,7 +70,12 @@ export class TapeFileHandler {
      * - writes initial metadata record
      */
     private _bootstrapTape(): void {
-        ensureTaraHome();
+        // Ensure parent directory exists
+        const dir = path.dirname(this.path);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+
         const meta = this._builtTapeMetadata();
         fs.writeFileSync(this.path, meta.toString() + '\n', 'utf-8');
     }

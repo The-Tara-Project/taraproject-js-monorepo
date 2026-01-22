@@ -25,6 +25,15 @@
 - No unnecessary elaboration
 - Do not enumerate sections
 
+## Backward Compatibility
+- Do not maintain backward compatibility unless I explicitly tell you to
+- we are boostrapping a the project, breaking changes are expected 
+
+## Auto commit
+- Before each implementation task, create a commit message summarizing the current state
+- IMPORTANT: DO NOT COMMIT AFTER IMPLEMENTATION TASKS, ONLY BEFORE
+- This is to keep track of changes and allow easy rollback if needed
+
 ## On Planning
 - I love questions
 - Ask me till I explicitly change planing mode

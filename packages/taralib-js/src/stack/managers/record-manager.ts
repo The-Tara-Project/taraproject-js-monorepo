@@ -1,6 +1,6 @@
-import type { TaraStack } from '../tara-project';
-import { TaraRecord } from '../base/record';
-import type { ITaraRecord } from '../base/types';
+import type { TaraStack } from '../tara-stack';
+import { TaraRecord } from '../../base/record';
+import type { ITaraRecord } from '../../base/types';
 
 /**
  * RecordManager provides operations for creating and managing Tara records.

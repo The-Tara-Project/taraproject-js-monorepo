@@ -1,6 +1,6 @@
 import * as os from 'os';
 import * as path from 'path';
-import { getDefaultSettingsHandler } from './settings';
+import { SettingsHandler } from './settings';
 import { HomeHandler } from './home-handler';
 
 const TARA_HOME_DIR = '.taraproject';
@@ -13,7 +13,8 @@ let defaultHomeHandler: HomeHandler | null = null;
 
 function getDefaultHomeHandler(): HomeHandler {
     if (!defaultHomeHandler) {
-        const settings = getDefaultSettingsHandler();
+        const settings = new SettingsHandler();
+        settings.refresh();
         defaultHomeHandler = new HomeHandler(settings);
     }
     return defaultHomeHandler;

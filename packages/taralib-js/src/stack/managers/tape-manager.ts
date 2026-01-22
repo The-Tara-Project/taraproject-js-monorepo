@@ -1,7 +1,6 @@
 import * as fs from 'fs';
-import type { TaraStack } from '../tara-project';
-import { TapeHandler, buildGlobalTapePath } from '../base/tape-handler';
-import { getTapesFolderPath } from '../base/home';
+import type { TaraStack } from '../tara-stack';
+import { TapeHandler, buildGlobalTapePath } from '../../base/tape-handler';
 
 /**
  * TapeManager provides high-level operations for managing Tara tapes.
@@ -14,7 +13,7 @@ export class TapeManager {
    * @returns Array of tape IDs (without .tara.jsonl extension)
    */
   list(): string[] {
-    const tapesPath = getTapesFolderPath();
+    const tapesPath = this.context.global.home.getTapesPath();
     if (!fs.existsSync(tapesPath)) return [];
 
     return fs.readdirSync(tapesPath)

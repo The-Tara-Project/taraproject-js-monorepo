@@ -1,39 +1,36 @@
 // ===== New TaraStack API =====
-export { TaraStack } from './tara-project';
-export type { TaraStackOptions } from './tara-project';
+export { TaraStack } from './stack/tara-stack';
+export type { TaraStackOptions } from './stack/tara-stack';
 
 // Scopes
-export { GlobalScope } from './scopes/global-scope';
+export { GlobalScope } from './stack/scopes/global-scope';
 export {
-  LocalScope,
-  LocalTapeManager,
-  LocalAppManager,
-  LocalHomeManager
-} from './scopes/local-scope';
+    LocalAppManager,
+    LocalHomeManager, LocalScope,
+    LocalTapeManager
+} from './stack/scopes/local-scope';
 
 // Managers (for direct use if needed)
-export { TapeManager } from './managers/tape-manager';
-export { AppManager, App } from './managers/app-manager';
-export { QuestionManager } from './managers/question-manager';
-export { RecordManager } from './managers/record-manager';
-export { SettingsManager } from './managers/settings-manager';
+export { App, AppManager } from './stack/managers/app-manager';
+export { QuestionManager } from './stack/managers/question-manager';
+export { RecordManager } from './stack/managers/record-manager';
+export { TapeManager } from './stack/managers/tape-manager';
 
-// ===== Existing exports (unchanged) =====
+// ===== Existing exports =====
 
 // Types
-export type { TaraRecordMeta, ITaraRecord, ITapeMetadata, SettingSource, SettingsState } from './base/types';
+export type { ITapeMetadata, ITaraRecord, SettingSource, SettingsState, TaraRecordMeta } from './base/types';
 
 
-// Home folder utilities
-export { getTaraHomePath, getTapesFolderPath, ensureTaraHome } from './base/home';
+// Home folder utilities (deprecated - use HomeHandler or TaraStack.global.home instead)
+export { ensureTaraHome, getTapesFolderPath, getTaraHomePath } from './base/home';
 
 // Record utilities
-export { TaraRecord, isValidUuid4 } from './base/record';
+export { isValidUuid4, TaraRecord } from './base/record';
 
 // Tape operations
 export {
-    TapeHandler,
-    buildGlobalTapePath,
+    buildGlobalTapePath, TapeHandler
 } from './base/tape-handler';
 
 export { TapeFileHandler } from './base/tape-file-handler';
@@ -41,7 +38,6 @@ export { TapeGitHandler } from './base/tape-git-handler';
 
 // Settings system
 export { SettingsHandler } from './base/settings';
-export { refreshSettings, getSetting, getRawValue, isSettingsLoaded } from './base/settings';
 
 // Home handler
 export { HomeHandler } from './base/home-handler';
@@ -50,14 +46,12 @@ export { HomeHandler } from './base/home-handler';
 export { GitHandler } from './base/git';
 
 // App handler
-export type { TaraQuestion } from './base/app-handler';
 export {
-    getAppsFolderPath,
-    getAppFolderPath,
-    getAppQuestionsFolderPath,
-    ensureAppQuestionsFolder,
-    listQuestionFiles,
+    ensureAppQuestionsFolder, getAppFolderPath,
+    getAppQuestionsFolderPath, getAppsFolderPath, listQuestionFiles,
     loadQuestion,
     loadRandomQuestion,
-    saveQuestion,
+    saveQuestion
 } from './base/app-handler';
+export type { TaraQuestion } from './base/app-handler';
+

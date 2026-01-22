@@ -1,6 +1,5 @@
-import type { TaraStack } from '../tara-project';
+import type { TaraStack } from '../tara-stack';
 import { RecordManager } from '../managers/record-manager';
-import { SettingsManager } from '../managers/settings-manager';
 
 /**
  * LocalScope provides access to local project Tara resources.
@@ -10,7 +9,6 @@ export class LocalScope {
   readonly tapes: LocalTapeManager;
   readonly apps: LocalAppManager;
   readonly records: RecordManager; // Shared - no scope dependency
-  readonly settings: SettingsManager; // Shared - can read project config
   readonly home: LocalHomeManager;
 
   private workingDir: string;
@@ -26,9 +24,8 @@ export class LocalScope {
     this.apps = new LocalAppManager(this.workingDir);
     this.home = new LocalHomeManager(this.workingDir);
 
-    // Shared managers (work for both scopes)
+    // Shared handlers (work for both scopes)
     this.records = new RecordManager(context);
-    this.settings = new SettingsManager(context);
   }
 
   getWorkingDir(): string {
