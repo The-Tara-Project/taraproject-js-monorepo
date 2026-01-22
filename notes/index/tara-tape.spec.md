@@ -43,7 +43,7 @@ The first record in every tape file is a metadata record with well-known structu
 
 The tape system uses a modular handler-based architecture with clear separation of concerns:
 
-**TaraTapeHandler (Orchestrator)**:
+**TapeHandler (Orchestrator)**:
 - Lightweight coordinator holding tape ID and path
 - Exposes two specialized handlers for different storage layers
 - Provides `getTapeId()` and `getPath()` accessor methods

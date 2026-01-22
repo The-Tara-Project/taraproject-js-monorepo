@@ -81,7 +81,7 @@ Refactor the Tara Tape implementation to support lazy streaming of records from 
 
 ### 8. implement readTapeMetadata Function
 **Location**: `packages/taralib-js/src/base/tape.ts`
-- Create `readTapeMetadata(tape: TaraTape): TaraTapeMetadata`
+- Create `readTapeMetadata(tape: TaraTape): ITapeMetadata`
 - Reads only the first line of the tape file to get metadata
 - error if tape file does not exist or is corrupted
 

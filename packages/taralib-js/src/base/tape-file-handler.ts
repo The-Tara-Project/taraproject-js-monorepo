@@ -2,8 +2,8 @@ import * as fs from 'fs';
 import * as readline from 'readline';
 import { ensureTaraHome } from './home';
 import { TaraRecord } from './record';
-import type { ReadRecordsCallback, ReadRecordsCallbackArgs, ITaraRecord, TaraTapeMetadata } from './types';
-import { TaraTapeHandler } from './tape-handler';
+import type { ReadRecordsCallback, ReadRecordsCallbackArgs, ITaraRecord, ITapeMetadata } from './types';
+import { TapeHandler } from './tape-handler';
 
 const FORMAT_VERSION = '1.0.0';
 
@@ -14,10 +14,10 @@ const FORMAT_VERSION = '1.0.0';
 export class TapeFileHandler {
     private tapeId: string;
     private path: string;
-    private metadata?: TaraTapeMetadata;
+    private metadata?: ITapeMetadata;
 
     constructor(
-        private tape: TaraTapeHandler
+        private tape: TapeHandler
     ) {
         this.tapeId = tape.getTapeId();
         this.path = tape.getPath();
@@ -26,7 +26,7 @@ export class TapeFileHandler {
     /**
      * Validate if an object is valid tape metadata.
      */
-    private _isValidTapeMetadata(obj: unknown): obj is TaraTapeMetadata {
+    private _isValidTapeMetadata(obj: unknown): obj is ITapeMetadata {
         if (!TaraRecord.isValid(obj)) {
             return false;
         }
@@ -160,14 +160,14 @@ export class TapeFileHandler {
      * Read and return the tape metadata.
      * Metadata is cached after the first read.
      */
-    async readMetadata(): Promise<TaraTapeMetadata> {
+    async readMetadata(): Promise<ITapeMetadata> {
         this.checkFile();
 
         if (this.metadata) {
             return this.metadata;
         }
 
-        let metadata: TaraTapeMetadata | null = null;
+        let metadata: ITapeMetadata | null = null;
 
         await this.readRecords(({ parsed }) => {
             if (!this._isValidTapeMetadata(parsed)) {

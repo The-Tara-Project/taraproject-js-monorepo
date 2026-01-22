@@ -3,7 +3,7 @@ import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
     TaraRecord,
-    TaraTapeHandler,
+    TapeHandler,
     buildGlobalTapePath,
     getTapesFolderPath,
 } from '../src';
@@ -12,7 +12,7 @@ import { setupTestEnv, teardownTestEnv } from './utils';
 describe('tape', () => {
 
     let testTapeId: string;
-    let tape: TaraTapeHandler;
+    let tape: TapeHandler;
 
     beforeEach(() => {
         // setup env
@@ -20,7 +20,7 @@ describe('tape', () => {
 
         // Create tape after setting TARA_HOME
         testTapeId = `test-tape-${Date.now()}`;
-        tape = new TaraTapeHandler(
+        tape = new TapeHandler(
             testTapeId,
             buildGlobalTapePath(testTapeId)
         );
@@ -41,7 +41,7 @@ describe('tape', () => {
     describe('appendRecord', () => {
         it('appends single record to tape', () => {
             const _testTapeId = `test-append-${Date.now()}`;
-            const testTape = new TaraTapeHandler(
+            const testTape = new TapeHandler(
                 _testTapeId,
                 buildGlobalTapePath(_testTapeId)
             );
@@ -58,7 +58,7 @@ describe('tape', () => {
 
         it('appends multiple records in sequence', () => {
             const _testTapeId = `test-multi-${Date.now()}`;
-            const testTape = new TaraTapeHandler(
+            const testTape = new TapeHandler(
                 _testTapeId,
                 buildGlobalTapePath(_testTapeId)
             );
@@ -78,7 +78,7 @@ describe('tape', () => {
     describe('exists', () => {
         it('returns false for non-existent tape', () => {
             const _testTapeId = `non-existent-${Date.now()}`;
-            const nonExistentTape = new TaraTapeHandler(
+            const nonExistentTape = new TapeHandler(
                 _testTapeId,
                 buildGlobalTapePath(_testTapeId)
             );
@@ -87,7 +87,7 @@ describe('tape', () => {
 
         it('returns true for existing tape', () => {
             const _testTapeId = `exists-test-${Date.now()}`;
-            const testTape = new TaraTapeHandler(
+            const testTape = new TapeHandler(
                 _testTapeId,
                 buildGlobalTapePath(_testTapeId)
             );
@@ -100,7 +100,7 @@ describe('tape', () => {
     describe('delete', () => {
         it('deletes existing tape', () => {
             const _testTapeId = `delete-test-${Date.now()}`;
-            const testTape = new TaraTapeHandler(
+            const testTape = new TapeHandler(
                 _testTapeId,
                 buildGlobalTapePath(_testTapeId)
             );
@@ -112,7 +112,7 @@ describe('tape', () => {
 
         it('does not throw for non-existent tape', () => {
             const _testTapeId = `non-existent-delete-${Date.now()}`;
-            const nonExistentTape = new TaraTapeHandler(
+            const nonExistentTape = new TapeHandler(
                 _testTapeId,
                 buildGlobalTapePath(_testTapeId)
             );
@@ -127,7 +127,7 @@ describe('tape', () => {
         });
 
         it('does not create file or perform I/O', () => {
-            const createdTape = new TaraTapeHandler(
+            const createdTape = new TapeHandler(
                 testTapeId,
                 buildGlobalTapePath(testTapeId)
             );
@@ -175,7 +175,7 @@ describe('tape', () => {
         });
 
         it('stops iteration when callback returns "stop"', async () => {
-            const createdTape = new TaraTapeHandler(
+            const createdTape = new TapeHandler(
                 testTapeId,
                 buildGlobalTapePath(testTapeId)
             );
@@ -196,7 +196,7 @@ describe('tape', () => {
         });
 
         it('throws error on corrupted record', async () => {
-            const createdTape = new TaraTapeHandler(
+            const createdTape = new TapeHandler(
                 testTapeId,
                 buildGlobalTapePath(testTapeId)
             );
@@ -212,7 +212,7 @@ describe('tape', () => {
 
     describe('appendRecordBatch', () => {
         it('appends multiple records in single operation', () => {
-            const createdTape = new TaraTapeHandler(
+            const createdTape = new TapeHandler(
                 testTapeId,
                 buildGlobalTapePath(testTapeId)
             );
@@ -231,7 +231,7 @@ describe('tape', () => {
         });
 
         it('appends all records without validation', () => {
-            const createdTape = new TaraTapeHandler(
+            const createdTape = new TapeHandler(
                 testTapeId,
                 buildGlobalTapePath(testTapeId)
             );
@@ -256,7 +256,7 @@ describe('tape', () => {
 
     describe('readMetadata', () => {
         it('reads metadata from tape', async () => {
-            const createdTape = new TaraTapeHandler(
+            const createdTape = new TapeHandler(
                 testTapeId,
                 buildGlobalTapePath(testTapeId)
             );
@@ -270,7 +270,7 @@ describe('tape', () => {
 
         it('throws error if tape does not exist', async () => {
             const _testTapeId = `non-existent-tape`;
-            const createdTape = new TaraTapeHandler(
+            const createdTape = new TapeHandler(
                 _testTapeId,
                 buildGlobalTapePath(_testTapeId)
             );

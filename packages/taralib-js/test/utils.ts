@@ -3,7 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { getTaraHomePath, refreshSettings } from "../src";
 import { dir } from 'console';
-import { defaultTaraHomePath } from '../src/base/home';
+import { defaultTaraHomePath, resetHomeHandler } from '../src/base/home';
 import { exit } from 'process';
 import { resetSettings } from '../src/base/settings';
 
@@ -47,4 +47,5 @@ export function teardownTestEnv(): void {
     // clean up home dir env var
     delete process.env.TARA_HOME;
     resetSettings();
+    resetHomeHandler();
 }

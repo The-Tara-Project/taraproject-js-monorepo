@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ITaraRecord } from '../src';
 import {
     TaraRecord,
-    TaraTapeHandler,
+    TapeHandler,
     buildGlobalTapePath
 } from '../src';
 import { setupTestEnv, teardownTestEnv } from './utils';
@@ -23,7 +23,7 @@ describe('integration: create -> store -> read -> check', () => {
 
     it('full workflow: create tape, add record, read back, verify content', async () => {
         // 1. Create a new tape
-        const tape = new TaraTapeHandler(
+        const tape = new TapeHandler(
             testTapeId,
             buildGlobalTapePath(testTapeId)
         );
@@ -70,7 +70,7 @@ describe('integration: create -> store -> read -> check', () => {
     });
 
     it.skip('supports multiple records in sequence', async () => {
-        const tape = new TaraTapeHandler(
+        const tape = new TapeHandler(
             testTapeId,
             buildGlobalTapePath(testTapeId)
         );

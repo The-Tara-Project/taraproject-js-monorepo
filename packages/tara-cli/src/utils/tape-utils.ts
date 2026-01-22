@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
   getTapesFolderPath,
-  TaraTapeHandler,
+  TapeHandler,
   type ITaraRecord,
 } from '@jose_pereiro/taralib-js';
 import type { TapeInfo } from '../types.js';
@@ -28,7 +28,7 @@ export async function getAllTapes(): Promise<TapeInfo[]> {
     const filePath = path.join(tapesFolder, file);
 
     try {
-      const tape = new TaraTapeHandler(tapeId);
+      const tape = new TapeHandler(tapeId);
       const stats = fs.statSync(filePath);
 
       let metadata: ITaraRecord | null = null;
@@ -62,7 +62,7 @@ export async function getAllTapes(): Promise<TapeInfo[]> {
  * Get a specific tape by ID.
  */
 export async function getTape(tapeId: string): Promise<TapeInfo> {
-  const tape = new TaraTapeHandler(tapeId);
+  const tape = new TapeHandler(tapeId);
   const filePath = tape.getPath();
 
   if (!fs.existsSync(filePath)) {
@@ -102,7 +102,7 @@ export async function getTape(tapeId: string): Promise<TapeInfo> {
 /**
  * Count records in a tape (excluding metadata).
  */
-export async function countRecords(tape: TaraTapeHandler): Promise<number> {
+export async function countRecords(tape: TapeHandler): Promise<number> {
   let count = 0;
 
   await tape.fileHandler.readRecords(({ parsed }) => {
@@ -118,7 +118,7 @@ export async function countRecords(tape: TaraTapeHandler): Promise<number> {
 /**
  * Get the last N records from a tape.
  */
-export async function getLastRecords(tape: TaraTapeHandler, n: number): Promise<ITaraRecord[]> {
+export async function getLastRecords(tape: TapeHandler, n: number): Promise<ITaraRecord[]> {
   const records: ITaraRecord[] = [];
 
   await tape.fileHandler.readRecords(({ parsed }) => {
@@ -135,7 +135,7 @@ export async function getLastRecords(tape: TaraTapeHandler, n: number): Promise<
 /**
  * Get the first N records from a tape.
  */
-export async function getFirstRecords(tape: TaraTapeHandler, n: number): Promise<ITaraRecord[]> {
+export async function getFirstRecords(tape: TapeHandler, n: number): Promise<ITaraRecord[]> {
   const records: ITaraRecord[] = [];
 
   await tape.fileHandler.readRecords(({ parsed }) => {
@@ -156,7 +156,7 @@ export async function getFirstRecords(tape: TaraTapeHandler, n: number): Promise
 /**
  * Get all records from a tape (excluding metadata).
  */
-export async function getAllRecords(tape: TaraTapeHandler): Promise<ITaraRecord[]> {
+export async function getAllRecords(tape: TapeHandler): Promise<ITaraRecord[]> {
   const records: ITaraRecord[] = [];
 
   await tape.fileHandler.readRecords(({ parsed }) => {

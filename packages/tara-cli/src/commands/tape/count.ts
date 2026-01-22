@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { TaraTapeHandler } from '@jose_pereiro/taralib-js';
+import { TapeHandler } from '@jose_pereiro/taralib-js';
 import { countRecords } from '../../utils/tape-utils.js';
 import { getOutputFormat } from '../../utils/output.js';
 import { printJSON } from '../../formatters/json.js';
@@ -11,7 +11,7 @@ export function registerCountCommand(tapeCommand: Command): void {
     .description('Count total records in a tape')
     .action(async (tapeId: string) => {
       const options = tapeCommand.optsWithGlobals() as GlobalOptions;
-      const tape = new TaraTapeHandler(tapeId);
+      const tape = new TapeHandler(tapeId);
       const count = await countRecords(tape);
 
       const format = getOutputFormat(options);

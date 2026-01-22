@@ -1,11 +1,38 @@
-import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { getSetting } from './settings';
+import { getDefaultSettingsHandler } from './settings';
+import { HomeHandler } from './home-handler';
 
 const TARA_HOME_DIR = '.taraproject';
-const TAPES_DIR = 'tapes';
 
+// ===== Backward Compatibility Layer =====
+// These functions use a default singleton instance for backward compatibility.
+// New code should use HomeHandler class or TaraStack.global.home instead.
+
+let defaultHomeHandler: HomeHandler | null = null;
+
+function getDefaultHomeHandler(): HomeHandler {
+    if (!defaultHomeHandler) {
+        const settings = getDefaultSettingsHandler();
+        defaultHomeHandler = new HomeHandler(settings);
+    }
+    return defaultHomeHandler;
+}
+
+/**
+ * Reset the default home handler (for testing purposes only).
+ * @internal
+ */
+export function resetHomeHandler(): void {
+    defaultHomeHandler = null;
+}
+
+/**
+ * Get the default Tara home path.
+ *
+ * @returns Default path: ~/.taraproject
+ * @deprecated Use HomeHandler.defaultPath() or TaraStack.global.home instead
+ */
 export function defaultTaraHomePath(): string {
     return path.join(os.homedir(), TARA_HOME_DIR);
 }
@@ -13,31 +40,60 @@ export function defaultTaraHomePath(): string {
 /**
  * Get the Tara project home directory path.
  *
- * Resolution order:
- * 1. TARA_HOME environment variable (highest priority)
- * 2. taraHome setting (if settings loaded)
- * 3. Default: ~/.taraproject
- *
  * @returns Absolute path to Tara home directory
+ * @deprecated Use HomeHandler or TaraStack.global.home.getPath() instead
+ * @example
+ * ```typescript
+ * // Old way (deprecated)
+ * import { getTaraHomePath } from '@jose_pereiro/taralib-js';
+ * const path = getTaraHomePath();
+ *
+ * // New way (base layer)
+ * import { SettingsHandler, HomeHandler } from '@jose_pereiro/taralib-js';
+ * const settings = new SettingsHandler();
+ * settings.refresh();
+ * const home = new HomeHandler(settings);
+ * const path = home.getPath();
+ *
+ * // New way (stack layer - recommended)
+ * import { TaraStack } from '@jose_pereiro/taralib-js';
+ * const tara = new TaraStack();
+ * const path = tara.global.home.getPath();
+ * ```
  */
 export function getTaraHomePath(): string {
-
-    // 1. Check settings system
-    const settingsPath = getSetting('taraHome');
-    if (settingsPath) {
-        return path.resolve(settingsPath as string);
-    }
-
-    // 3. Default fallback
-    return defaultTaraHomePath();
+    return getDefaultHomeHandler().getPath();
 }
 
+/**
+ * Get path to subdirectory in TARA_HOME.
+ *
+ * @param subfolder - The subfolder name
+ * @returns Absolute path to the subfolder
+ * @deprecated Use HomeHandler.getSubPath() or TaraStack.global.home.getSubPath() instead
+ */
 export function getHomeSubPath(subfolder: string): string {
-    return path.join(getTaraHomePath(), subfolder);
+    return getDefaultHomeHandler().getSubPath(subfolder);
 }
 
+/**
+ * Get tapes folder path.
+ *
+ * @returns Absolute path to the tapes folder
+ * @deprecated Use HomeHandler.getTapesPath() or TaraStack.global.home.getTapesPath() instead
+ */
 export function getTapesFolderPath(): string {
-    return getHomeSubPath(TAPES_DIR);
+    return getDefaultHomeHandler().getTapesPath();
+}
+
+/**
+ * Get apps folder path.
+ *
+ * @returns Absolute path to the apps folder
+ * @deprecated Use HomeHandler.getAppsPath() or TaraStack.global.home.getAppsPath() instead
+ */
+export function getAppsFolderPath(): string {
+    return getDefaultHomeHandler().getAppsPath();
 }
 
 /**
@@ -45,24 +101,8 @@ export function getTapesFolderPath(): string {
  * Creates directories if they don't exist.
  *
  * @throws Error if TARA_HOME exists but is not a directory
+ * @deprecated Use HomeHandler.ensure() or TaraStack.global.home.ensure() instead
  */
 export function ensureTaraHome(): void {
-    const taraHome = getTaraHomePath();
-
-    // Validate that taraHome is not a file
-    if (fs.existsSync(taraHome)) {
-        const stats = fs.statSync(taraHome);
-        if (!stats.isDirectory()) {
-            throw new Error(
-                `TARA_HOME exists but is not a directory: ${taraHome}\n` +
-                `Please remove the file or set TARA_HOME to a different location.`
-            );
-        }
-    }
-
-    // Ensure tapes directory exists
-    const tapesPath = getTapesFolderPath();
-    if (!fs.existsSync(tapesPath)) {
-        fs.mkdirSync(tapesPath, { recursive: true });
-    }
+    getDefaultHomeHandler().ensure();
 }

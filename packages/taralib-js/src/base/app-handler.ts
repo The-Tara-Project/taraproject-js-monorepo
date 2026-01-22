@@ -1,9 +1,17 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { getTaraHomePath } from './home';
+import { getAppsFolderPath as getAppsFolderPathFromHome } from './home';
 
-const APPS_DIR = 'apps';
 const QUESTIONS_DIR = 'questions';
+
+/**
+ * Get the path to the apps folder within TARA_HOME
+ * @returns Path to ~/.taraproject/apps
+ * @deprecated Import from home.ts instead
+ */
+export function getAppsFolderPath(): string {
+    return getAppsFolderPathFromHome();
+}
 
 /**
  * Interface for a question file stored in `.taraproject/apps/<app_name>/questions/`
@@ -19,14 +27,6 @@ export interface TaraQuestion {
     pullerName?: string;
     /** Any additional metadata */
     [key: string]: unknown;
-}
-
-/**
- * Get the path to the apps folder within TARA_HOME
- * @returns Path to ~/.taraproject/apps
- */
-export function getAppsFolderPath(): string {
-    return path.join(getTaraHomePath(), APPS_DIR);
 }
 
 /**

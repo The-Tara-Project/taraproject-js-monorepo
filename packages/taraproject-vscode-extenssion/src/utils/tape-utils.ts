@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
   getTapesFolderPath,
-  TaraTapeHandler,
+  TapeHandler,
   type ITaraRecord,
 } from '@jose_pereiro/taralib-js';
 import type { TapeInfo } from '../models/types';
@@ -27,7 +27,7 @@ export async function getAllTapes(): Promise<TapeInfo[]> {
     const filePath = path.join(tapesFolder, file);
 
     try {
-      const tape = new TaraTapeHandler(tapeId);
+      const tape = new TapeHandler(tapeId);
       const stats = fs.statSync(filePath);
 
       let metadata: ITaraRecord | null = null;
@@ -60,7 +60,7 @@ export async function getAllTapes(): Promise<TapeInfo[]> {
 /**
  * Count records in a tape (excluding metadata).
  */
-export async function countRecords(tape: TaraTapeHandler): Promise<number> {
+export async function countRecords(tape: TapeHandler): Promise<number> {
   let count = 0;
 
   await tape.fileHandler.readRecords(({ parsed }) => {

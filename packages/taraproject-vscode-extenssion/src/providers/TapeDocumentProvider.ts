@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'node:fs';
-import { TaraTapeHandler, getTapesFolderPath } from '@jose_pereiro/taralib-js';
+import { TapeHandler, getTapesFolderPath } from '@jose_pereiro/taralib-js';
 import * as path from 'node:path';
 
 export class TapeDocumentProvider implements vscode.TextDocumentContentProvider {

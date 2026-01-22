@@ -7,7 +7,7 @@ export interface ITaraRecord {
     [key: string]: unknown;
 }
 
-export interface TaraTapeMetadata extends ITaraRecord {
+export interface ITapeMetadata extends ITaraRecord {
     type: 'taralib/tape-metadata';
     tapeId: string;
     formatVersion: string;

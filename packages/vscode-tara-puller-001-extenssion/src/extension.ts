@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { TaraTapeHandler, TaraRecord, ensureTaraHome, loadRandomQuestion, listQuestionFiles, ensureAppQuestionsFolder, saveQuestion, TaraQuestion } from '@jose_pereiro/taralib-js';
+import { TapeHandler, TaraRecord, ensureTaraHome, loadRandomQuestion, listQuestionFiles, ensureAppQuestionsFolder, saveQuestion, TaraQuestion } from '@jose_pereiro/taralib-js';
 
 const APP_NAME = 'tara-puller-001';
 const CONFIRM_PREFIX = '...';
@@ -20,7 +20,7 @@ interface PullerState {
     lastPromptTime: number;
     isWindowFocused: boolean;
     intervalId: NodeJS.Timeout | null;
-    tape: TaraTapeHandler | null;
+    tape: TapeHandler | null;
     minIntervalMs: number;
     checkIntervalMs: number;
     enabled: boolean;
@@ -244,9 +244,9 @@ function loadSettings(): void {
 /**
  * Initialize the tape handler with the current tape ID
  */
-function initTape(): TaraTapeHandler {
+function initTape(): TapeHandler {
     ensureTaraHome();
-    const tape = new TaraTapeHandler(currentTapeId());
+    const tape = new TapeHandler(currentTapeId());
     tape.fileHandler.instantiate();
     return tape;
 }

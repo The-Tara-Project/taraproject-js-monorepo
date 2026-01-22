@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { GitHandler } from './git';
 import { getTapesFolderPath } from './home';
-import { TaraTapeHandler } from './tape-handler';
+import { TapeHandler } from './tape-handler';
 
 /**
  * TapeGitHandler provides tape-specific git operations.
@@ -13,7 +13,7 @@ export class TapeGitHandler {
     private gitHandler: GitHandler;
 
     constructor(
-        private tape: TaraTapeHandler
+        private tape: TapeHandler
     ) {
         this.tapePath = tape.getPath();
         this.repoPath = path.dirname(this.tapePath);
@@ -62,7 +62,7 @@ export class TapeGitHandler {
         return this.tapePath;
     }
 
-    getTape(): TaraTapeHandler {
+    getTape(): TapeHandler {
         return this.tape
     }
 

@@ -207,7 +207,7 @@ From `packages/taralib-js/test/tape.spec.ts`, the implementation tests:
 
 4. **Update Type Definitions**
    - Add optional `contentHash` and `canonicalHash` to `TaraRecordMeta`
-   - Add `config` to `TaraTapeMetadata`
+   - Add `config` to `ITapeMetadata`
 
 ### Low Priority
 5. **Enhance Error Messages**

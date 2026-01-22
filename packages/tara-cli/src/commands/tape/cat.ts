@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { TaraTapeHandler } from '@jose_pereiro/taralib-js';
+import { TapeHandler } from '@jose_pereiro/taralib-js';
 import type { GlobalOptions } from '../../types.js';
 
 export function registerCatCommand(tapeCommand: Command): void {
@@ -7,7 +7,7 @@ export function registerCatCommand(tapeCommand: Command): void {
     .command('cat <tapeId>')
     .description('Stream all records as JSONL (one JSON object per line)')
     .action(async (tapeId: string) => {
-      const tape = new TaraTapeHandler(tapeId);
+      const tape = new TapeHandler(tapeId);
 
       // Stream records as JSONL
       await tape.fileHandler.readRecords(({ parsed }) => {

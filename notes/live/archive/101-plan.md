@@ -16,7 +16,7 @@ Bootstrap the core Tara system with minimal viable functionality:
 
 ### 1.1 Define Core Types
 - `TaraRecord` interface with `__tara.id` (uuid4) as the only required field
-- `TaraTapeMetadata` interface for the first record in a tape
+- `ITapeMetadata` interface for the first record in a tape
 - `TaraTape` type representing the tape abstraction
 
 ### 1.2 File Structure

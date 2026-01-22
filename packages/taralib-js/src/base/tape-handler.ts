@@ -4,10 +4,10 @@ import { TapeFileHandler } from './tape-file-handler';
 import { TapeGitHandler } from './tape-git-handler';
 
 /**
- * TaraTapeHandler coordinates tape operations through specialized handlers.
+ * TapeHandler coordinates tape operations through specialized handlers.
  * Use `tape.fileHandler.*` for file operations and `tape.gitHandler.*` for git operations.
  */
-export class TaraTapeHandler {
+export class TapeHandler {
     private tapeId: string;
     private path: string;
 

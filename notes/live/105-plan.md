@@ -1,8 +1,8 @@
-# TaraTapeHandler Refactoring Plan
+# TapeHandler Refactoring Plan
 
 ## Goal
 
-Refactor `TaraTapeHandler` to separate concerns into distinct handlers:
+Refactor `TapeHandler` to separate concerns into distinct handlers:
 - `TapeFileHandler` - handles file operations
 - `TapeGitHandler` - handles git operations
 
@@ -14,7 +14,7 @@ This enables explicit workflows:
 
 ### Independence & Coordination
 - Handlers are independent; they do not share state
-- `TaraTapeHandler` coordinates handlers externally
+- `TapeHandler` coordinates handlers externally
 - No direct communication between handlers
 
 ### Error Handling
@@ -45,12 +45,12 @@ GitHandler (base/git.ts)
     └── wrapped by ──► TapeGitHandler
                            │ tape-specific git operations
                            │
-                           └── exposed via ──► TaraTapeHandler.gitHandler
+                           └── exposed via ──► TapeHandler.gitHandler
 
 TapeFileHandler
     │ all file operations for a tape
     │
-    └── exposed via ──► TaraTapeHandler.fileHandler
+    └── exposed via ──► TapeHandler.fileHandler
 ```
 
 ### Two-Layer Strategy
@@ -67,7 +67,7 @@ TapeFileHandler
 - `tapeId`
 - `path` (tape file path)
 
-**Methods migrated from TaraTapeHandler**:
+**Methods migrated from TapeHandler**:
 - `instantiate()` - create tape file if not exists
 - `readRecords(callback)` - read records with callback
 - `appendRecord(record)` - append single record
@@ -103,7 +103,7 @@ TapeFileHandler
 - All tapes are tracked under the same repo
 - Operations are scoped to the individual tape file
 
-### TaraTapeHandler (Orchestrator)
+### TapeHandler (Orchestrator)
 
 **Keeps**:
 - `tapeId` property

@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { TaraTapeHandler } from '@jose_pereiro/taralib-js';
+import { TapeHandler } from '@jose_pereiro/taralib-js';
 import { getAllRecords, formatFileSize } from '../../utils/tape-utils.js';
 import { getOutputFormat } from '../../utils/output.js';
 import { printJSON } from '../../formatters/json.js';
@@ -8,7 +8,7 @@ import type { GlobalOptions, TapeSummary } from '../../types.js';
 import * as fs from 'node:fs';
 
 async function generateSummary(tapeId: string): Promise<TapeSummary> {
-  const tape = new TaraTapeHandler(tapeId);
+  const tape = new TapeHandler(tapeId);
   const records = await getAllRecords(tape);
 
   // Basic stats

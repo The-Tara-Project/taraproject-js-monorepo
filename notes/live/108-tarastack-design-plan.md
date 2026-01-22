@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines the design strategy for creating a top-level entry point class (`TaraProject`) for the Tara stack, inspired by the Obsidian app pattern. This will provide a unified interface to access all Tara subsystems: tapes, apps, records, settings, and home infrastructure.
+This document outlines the design strategy for creating a top-level entry point class (`TaraStack`) for the Tara stack, inspired by the Obsidian app pattern. This will provide a unified interface to access all Tara subsystems: tapes, apps, records, settings, and home infrastructure.
 
 ---
 
@@ -43,7 +43,7 @@ taralib-js/src/
 ### Existing Architectural Patterns
 
 1. **Composition over Inheritance**
-   - `TaraTapeHandler` composes `TapeFileHandler` and `TapeGitHandler`
+   - `TapeHandler` composes `TapeFileHandler` and `TapeGitHandler`
    - No class inheritance hierarchies
 
 2. **Strategy Pattern**
@@ -73,15 +73,15 @@ taralib-js/src/
 
 ---
 
-## Design Recommendation: TaraProject Class
+## Design Recommendation: TaraStack Class
 
 ### Vision: Single Context Object
 
-Create a `TaraProject` class as the main entry point, similar to how Obsidian provides a unified `app` object:
+Create a `TaraStack` class as the main entry point, similar to how Obsidian provides a unified `app` object:
 
 ```typescript
 // Usage example
-const tara = new TaraProject();
+const tara = new TaraStack();
 await tara.initialize();
 
 // Now you can:
@@ -93,7 +93,7 @@ const record = tara.records.create({ data: 'value' });
 ### Proposed Architecture
 
 ```typescript
-class TaraProject {
+class TaraStack {
   // Sub-managers (lazy-loaded)
   readonly tapes: TapeManager;
   readonly apps: AppManager;
@@ -102,7 +102,7 @@ class TaraProject {
   readonly home: HomeManager;
 
   // Initialization
-  async initialize(options?: TaraProjectOptions): Promise<void>;
+  async initialize(options?: TaraStackOptions): Promise<void>;
 
   // Utility methods
   getVersion(): string;
@@ -120,7 +120,7 @@ class TaraProject {
 Settings must be loaded first (affects everything else):
 
 ```typescript
-class TaraProject {
+class TaraStack {
   private _initialized = false;
 
   async initialize(): Promise<void> {
@@ -138,7 +138,7 @@ class TaraProject {
 
   assertInitialized(): void {
     if (!this._initialized) {
-      throw new Error('TaraProject not initialized. Call initialize() first.');
+      throw new Error('TaraStack not initialized. Call initialize() first.');
     }
   }
 }
@@ -155,8 +155,8 @@ Instead of putting all methods on one giant class, use specialized managers:
 ```typescript
 class TapeManager {
   list(): string[];                          // List all tape IDs
-  get(tapeId: string): TaraTapeHandler;     // Get handler for specific tape
-  create(tapeId: string): TaraTapeHandler;   // Create new tape
+  get(tapeId: string): TapeHandler;     // Get handler for specific tape
+  create(tapeId: string): TapeHandler;   // Create new tape
   exists(tapeId: string): boolean;           // Check if tape exists
   delete(tapeId: string): void;              // Delete a tape
 }
@@ -211,11 +211,11 @@ Don't initialize everything upfront:
 
 ```typescript
 class TapeManager {
-  private _handlers = new Map<string, TaraTapeHandler>();
+  private _handlers = new Map<string, TapeHandler>();
 
-  get(tapeId: string): TaraTapeHandler {
+  get(tapeId: string): TapeHandler {
     if (!this._handlers.has(tapeId)) {
-      this._handlers.set(tapeId, new TaraTapeHandler(tapeId));
+      this._handlers.set(tapeId, new TapeHandler(tapeId));
     }
     return this._handlers.get(tapeId)!;
   }
@@ -243,14 +243,14 @@ src/
 │   ├── settings-manager.ts
 │   └── home-manager.ts
 ├── tara-project.ts           # Main entry point
-└── index.ts                  # Update to export TaraProject
+└── index.ts                  # Update to export TaraStack
 ```
 
-### Core Implementation: TaraProject
+### Core Implementation: TaraStack
 
 ```typescript
 // src/tara-project.ts
-export class TaraProject {
+export class TaraStack {
   private _initialized = false;
 
   readonly tapes: TapeManager;
@@ -259,7 +259,7 @@ export class TaraProject {
   readonly settings: SettingsManager;
   readonly home: HomeManager;
 
-  constructor(private options?: TaraProjectOptions) {
+  constructor(private options?: TaraStackOptions) {
     this.tapes = new TapeManager(this);
     this.apps = new AppManager(this);
     this.records = new RecordManager(this);
@@ -276,7 +276,7 @@ export class TaraProject {
 
   assertInitialized(): void {
     if (!this._initialized) {
-      throw new Error('TaraProject not initialized. Call initialize() first.');
+      throw new Error('TaraStack not initialized. Call initialize() first.');
     }
   }
 
@@ -294,7 +294,7 @@ export class TaraProject {
   }
 }
 
-export interface TaraProjectOptions {
+export interface TaraStackOptions {
   debug?: boolean;
   taraHome?: string; // Optional override for TARA_HOME
 }
@@ -305,9 +305,9 @@ export interface TaraProjectOptions {
 ```typescript
 // src/managers/tape-manager.ts
 export class TapeManager {
-  private _handlers = new Map<string, TaraTapeHandler>();
+  private _handlers = new Map<string, TapeHandler>();
 
-  constructor(private context: TaraProject) {}
+  constructor(private context: TaraStack) {}
 
   list(): string[] {
     this.context.assertInitialized();
@@ -319,20 +319,20 @@ export class TapeManager {
       .map(f => f.replace('.tara.jsonl', ''));
   }
 
-  get(tapeId: string): TaraTapeHandler {
+  get(tapeId: string): TapeHandler {
     this.context.assertInitialized();
     if (!this._handlers.has(tapeId)) {
-      this._handlers.set(tapeId, new TaraTapeHandler(tapeId));
+      this._handlers.set(tapeId, new TapeHandler(tapeId));
     }
     return this._handlers.get(tapeId)!;
   }
 
-  create(tapeId: string): TaraTapeHandler {
+  create(tapeId: string): TapeHandler {
     this.context.assertInitialized();
     if (this.exists(tapeId)) {
       throw new Error(`Tape "${tapeId}" already exists`);
     }
-    const tape = new TaraTapeHandler(tapeId);
+    const tape = new TapeHandler(tapeId);
     tape.fileHandler.instantiate();
     tape.gitHandler.init();
     return tape;
@@ -359,7 +359,7 @@ export class TapeManager {
 ```typescript
 // src/managers/app-manager.ts
 export class AppManager {
-  constructor(private context: TaraProject) {}
+  constructor(private context: TaraStack) {}
 
   list(): string[] {
     this.context.assertInitialized();
@@ -398,7 +398,7 @@ export class App {
 
   constructor(
     name: string,
-    private context: TaraProject
+    private context: TaraStack
   ) {
     this.name = name;
     this.questions = new QuestionManager(name, context);
@@ -422,7 +422,7 @@ export class App {
 ## Design Advantages
 
 ### Single Entry Point
-- Users only need to know about `TaraProject`
+- Users only need to know about `TaraStack`
 - All subsystems accessible through one object
 - Familiar pattern from Obsidian API
 
@@ -449,14 +449,14 @@ export class App {
 ### Extensibility
 - Easy to add hooks/events later
 - Plugin system can be built on top
-- New managers can be added without changing TaraProject
+- New managers can be added without changing TaraStack
 
 ---
 
 ## Why This Design Works
 
 ### Follows Existing Patterns
-- Uses composition like `TaraTapeHandler` already does ✅
+- Uses composition like `TapeHandler` already does ✅
 - Respects immutability and append-only operations ✅
 - Maintains separation of concerns ✅
 
@@ -474,25 +474,25 @@ export class App {
 
 ## Migration Path
 
-### Phase 1: Add TaraProject Class
-- Implement `TaraProject` and all managers
+### Phase 1: Add TaraStack Class
+- Implement `TaraStack` and all managers
 - Keep existing exports working
 - Add new exports for managers
 
 ```typescript
 // index.ts - Both old and new work
-export { TaraProject } from './tara-project';
-export { TaraTapeHandler, TapeFileHandler } from './base/tape-handler';
+export { TaraStack } from './tara-project';
+export { TapeHandler, TapeFileHandler } from './base/tape-handler';
 // ... existing exports
 ```
 
 ### Phase 2: Gradually Migrate Consumers
 ```typescript
 // Old way (still works):
-const tape = new TaraTapeHandler('my-tape');
+const tape = new TapeHandler('my-tape');
 
 // New way (recommended):
-const tara = new TaraProject();
+const tara = new TaraStack();
 await tara.initialize();
 const tape = tara.tapes.get('my-tape');
 ```
@@ -509,7 +509,7 @@ const tape = tara.tapes.get('my-tape');
 ### Workflow Helpers
 
 ```typescript
-class TaraProject {
+class TaraStack {
   async recordActivity(tapeId: string, data: any): Promise<void> {
     const tape = this.tapes.get(tapeId);
     const record = this.records.create(data);
@@ -529,7 +529,7 @@ class TaraProject {
 ### Event System
 
 ```typescript
-class TaraProject extends EventEmitter {
+class TaraStack extends EventEmitter {
   on(event: 'record:created', handler: (record: TaraRecord) => void);
   on(event: 'tape:created', handler: (tapeId: string) => void);
   on(event: 'app:created', handler: (appName: string) => void);
@@ -544,11 +544,11 @@ class TaraProject extends EventEmitter {
 interface TaraPlugin {
   name: string;
   version: string;
-  onLoad(tara: TaraProject): Promise<void>;
+  onLoad(tara: TaraStack): Promise<void>;
   onUnload(): Promise<void>;
 }
 
-class TaraProject {
+class TaraStack {
   registerPlugin(plugin: TaraPlugin): void;
   getPlugin(name: string): TaraPlugin | undefined;
 }
@@ -560,7 +560,7 @@ class TaraProject {
 
 This design provides:
 
-1. **Unified Entry Point** - One `TaraProject` class to rule them all
+1. **Unified Entry Point** - One `TaraStack` class to rule them all
 2. **Manager Pattern** - Each subsystem has focused responsibility
 3. **Lazy Loading** - Only create objects when needed
 4. **Type Safety** - Full TypeScript support
