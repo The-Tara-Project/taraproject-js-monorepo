@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { GTapeHandler } from '@jose_pereiro/taralib-js';
+import { TaraStack } from '@jose_pereiro/taralib-js';
 import { getLastRecords } from '../../utils/tape-utils.js';
 import { getOutputFormat } from '../../utils/output.js';
 import { printJSON } from '../../formatters/json.js';
@@ -14,7 +14,8 @@ export function registerTailCommand(tapeCommand: Command): void {
       const options = tapeCommand.optsWithGlobals() as GlobalOptions;
       const n = parseInt(count || '10', 10);
 
-      const tape = new GTapeHandler(tapeId);
+      const tara = new TaraStack();
+      const tape = tara.global.tapes.get(tapeId);
       const records = await getLastRecords(tape, n);
 
       const format = getOutputFormat(options);

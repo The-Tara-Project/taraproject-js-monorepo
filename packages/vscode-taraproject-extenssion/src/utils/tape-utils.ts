@@ -33,7 +33,7 @@ export async function getAllTapes(tara: TaraStack): Promise<TapeInfo[]> {
 
       let metadata: ITapeMetaRecord | null = null;
       try {
-        metadata = await tape.file.readMetadata();
+        metadata = await tape.readMetadata();
       } catch (error) {
         // Metadata is optional, continue without it
       }
@@ -64,7 +64,7 @@ export async function getAllTapes(tara: TaraStack): Promise<TapeInfo[]> {
 export async function countRecords(tape: GTapeHandler): Promise<number> {
   let count = 0;
 
-  await tape.file.readRecords(({ parsed }) => {
+  await tape.readRecords(({ parsed }) => {
     // Skip metadata record
     if (parsed.type !== 'taralib/tape-metadata') {
       count++;

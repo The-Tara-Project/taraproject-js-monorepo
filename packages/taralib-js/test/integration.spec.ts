@@ -68,7 +68,7 @@ describe('integration: create -> store -> read -> check', () => {
         expect(retrievedRecord.__tararecord.id).toBe(record.__tararecord.id);
     });
 
-    it.skip('supports multiple records in sequence', async () => {
+    it('supports multiple records in sequence', async () => {
         const tape = tara.global.tapes.get(testTapeId);
         tape.instantiate();
 

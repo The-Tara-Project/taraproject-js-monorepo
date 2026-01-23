@@ -33,12 +33,6 @@ describe('TaraStack Scopes', () => {
         });
     });
 
-    describe('Local Scope', () => {
-        // #AGENTS/NOTE
-        // DO NOT IMPLEMENT YET
-        // LEFT BLANK FOR FUTURE EXPANSION        
-    });
-
     describe('Scope Requirement', () => {
         it('should require explicit scope access', () => {
 

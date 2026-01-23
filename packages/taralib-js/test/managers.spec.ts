@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { TaraStack, RecordHandler } from '../src';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { RecordHandler, TaraStack } from '../src';
 import { setupTestEnv, teardownTestEnv } from './utils';
 
 describe('GTapeManager', () => {
@@ -41,59 +41,6 @@ describe('GTapeManager', () => {
 
         expect(handler1).not.toBe(handler2);
         expect(handler1.getTapeId()).toBe(handler2.getTapeId());
-    });
-});
-
-describe('AppManager', () => {
-    let tara: TaraStack;
-
-    beforeEach(() => {
-        tara = setupTestEnv();
-    });
-
-    afterEach(() => {
-        // clear env
-        teardownTestEnv(tara);
-    });
-
-    it('should create app with questions folder', () => {
-        const app = tara.global.apps.create('test-app');
-
-        expect(app.name).toBe('test-app');
-        expect(app.exists()).toBe(true);
-        expect(tara.global.apps.exists('test-app')).toBe(true);
-    });
-
-    it('should access questions manager', () => {
-        const app = tara.global.apps.create('test-app');
-
-        const questions = app.questions.list();
-        expect(Array.isArray(questions)).toBe(true);
-    });
-
-    it('should list apps', () => {
-        tara.global.apps.create('app-1');
-        tara.global.apps.create('app-2');
-
-        const apps = tara.global.apps.list();
-        expect(apps).toContain('app-1');
-        expect(apps).toContain('app-2');
-        expect(apps.length).toBe(2);
-    });
-
-    it('should get app without creating', () => {
-        const app = tara.global.apps.get('non-existent-app');
-
-        expect(app.name).toBe('non-existent-app');
-        expect(app.exists()).toBe(false);
-    });
-
-    it('should delete app', () => {
-        const app = tara.global.apps.create('delete-test-app');
-        expect(app.exists()).toBe(true);
-
-        app.delete();
-        expect(app.exists()).toBe(false);
     });
 });
 

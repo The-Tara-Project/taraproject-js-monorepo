@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
-  getTapesFolderPath,
+  TaraStack,
   GTapeHandler,
   type ITaraRecord,
   type ITapeMetaRecord,
@@ -9,11 +9,25 @@ import {
 import type { TapeInfo } from '../types.js';
 import { TaraCLIError, ErrorCode } from './errors.js';
 
+// Singleton TaraStack instance
+let tara: TaraStack | null = null;
+
+/**
+ * Initialize TaraStack (lazy initialization)
+ */
+function getTaraStack(): TaraStack {
+  if (!tara) {
+    tara = new TaraStack();
+  }
+  return tara;
+}
+
 /**
  * Get all tapes from the tapes folder.
  */
 export async function getAllTapes(): Promise<TapeInfo[]> {
-  const tapesFolder = getTapesFolderPath();
+  const taraStack = getTaraStack();
+  const tapesFolder = taraStack.global.home.getTapesPath();
 
   if (!fs.existsSync(tapesFolder)) {
     return [];
@@ -29,12 +43,12 @@ export async function getAllTapes(): Promise<TapeInfo[]> {
     const filePath = path.join(tapesFolder, file);
 
     try {
-      const tape = new GTapeHandler(tapeId);
+      const tape = taraStack.global.tapes.get(tapeId);
       const stats = fs.statSync(filePath);
 
       let metadata: ITapeMetaRecord | null = null;
       try {
-        metadata = await tape.file.readMetadata();
+        metadata = await tape.readMetadata();
       } catch (error) {
         // Metadata is optional, continue without it
       }
@@ -63,7 +77,8 @@ export async function getAllTapes(): Promise<TapeInfo[]> {
  * Get a specific tape by ID.
  */
 export async function getTape(tapeId: string): Promise<TapeInfo> {
-  const tape = new GTapeHandler(tapeId);
+  const taraStack = getTaraStack();
+  const tape = taraStack.global.tapes.get(tapeId);
   const filePath = tape.getPath();
 
   if (!fs.existsSync(filePath)) {
@@ -78,7 +93,7 @@ export async function getTape(tapeId: string): Promise<TapeInfo> {
   let metadata: ITapeMetaRecord | null = null;
 
   try {
-    metadata = await tape.file.readMetadata();
+    metadata = await tape.readMetadata();
   } catch (error) {
     throw new TaraCLIError(
       `Failed to read tape metadata: ${error instanceof Error ? error.message : String(error)}`,
@@ -106,7 +121,7 @@ export async function getTape(tapeId: string): Promise<TapeInfo> {
 export async function countRecords(tape: GTapeHandler): Promise<number> {
   let count = 0;
 
-  await tape.file.readRecords(({ parsed }) => {
+  await tape.readRecords(({ parsed }) => {
     // Skip metadata record
     if (parsed.type !== 'taralib/tape-metadata') {
       count++;
@@ -122,7 +137,7 @@ export async function countRecords(tape: GTapeHandler): Promise<number> {
 export async function getLastRecords(tape: GTapeHandler, n: number): Promise<ITaraRecord[]> {
   const records: ITaraRecord[] = [];
 
-  await tape.file.readRecords(({ parsed }) => {
+  await tape.readRecords(({ parsed }) => {
     // Skip metadata record
     if (parsed.type !== 'taralib/tape-metadata') {
       records.push(parsed);
@@ -139,7 +154,7 @@ export async function getLastRecords(tape: GTapeHandler, n: number): Promise<ITa
 export async function getFirstRecords(tape: GTapeHandler, n: number): Promise<ITaraRecord[]> {
   const records: ITaraRecord[] = [];
 
-  await tape.file.readRecords(({ parsed }) => {
+  await tape.readRecords(({ parsed }) => {
     // Skip metadata record
     if (parsed.type !== 'taralib/tape-metadata') {
       records.push(parsed);
@@ -160,7 +175,7 @@ export async function getFirstRecords(tape: GTapeHandler, n: number): Promise<IT
 export async function getAllRecords(tape: GTapeHandler): Promise<ITaraRecord[]> {
   const records: ITaraRecord[] = [];
 
-  await tape.file.readRecords(({ parsed }) => {
+  await tape.readRecords(({ parsed }) => {
     // Skip metadata record
     if (parsed.type !== 'taralib/tape-metadata') {
       records.push(parsed);

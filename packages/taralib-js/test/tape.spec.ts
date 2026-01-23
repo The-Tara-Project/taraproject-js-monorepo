@@ -1,12 +1,11 @@
 import * as fs from 'fs';
-import * as crypto from 'crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
     RecordHandler,
     TaraStack,
 } from '../src';
-import { setupTestEnv, teardownTestEnv } from './utils';
 import { isValidUuid4 } from '../src/base/utils';
+import { setupTestEnv, teardownTestEnv } from './utils';
 
 describe('tape', () => {
 

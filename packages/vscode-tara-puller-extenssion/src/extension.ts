@@ -313,7 +313,9 @@ function loadSettings(): void {
  */
 function initTaraStack(): TaraStack {
     if (!state.tara) {
-        state.tara = new TaraStack();
+        state.tara = new TaraStack({
+            writer: APP_NAME
+        });
         state.tara.global.home.ensure();
     }
     return state.tara;
@@ -326,11 +328,15 @@ function getTape(): GTapeHandler {
     const tara = initTaraStack();
     const tapeId = currentTapeId();
 
-    // Get or create the tape
-    if (!tara.global.tapes.exists(tapeId)) {
-        return tara.global.tapes.create(tapeId);
+    // Get the tape handler (creates new instance)
+    const tape = tara.global.tapes.get(tapeId);
+
+    // Ensure tape file exists (idempotent operation)
+    if (!tape.exists()) {
+        tape.instantiate();
     }
-    return tara.global.tapes.get(tapeId);
+
+    return tape;
 }
 
 /**
@@ -390,7 +396,7 @@ function recordEntry(response: string | null, dismissed: boolean, context: PullC
         context,
     });
 
-    tape.file.appendRecord(record);
+    tape.appendRecord(record);
 }
 
 /**

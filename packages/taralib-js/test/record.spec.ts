@@ -73,7 +73,7 @@ describe('record', () => {
 
         it('throws on invalid ID', () => {
             expect(() => {
-                new RecordHandler({}, 'invalid-id');
+                new RecordHandler({}, {id: 'invalid-id'});
             }).toThrow('Invalid record: invalid UUID v4 format for id');
         });
 
