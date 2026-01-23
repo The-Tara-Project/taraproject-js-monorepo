@@ -1,47 +1,51 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import type { SettingsHandler } from './settings-handler';
+import { TaraStack } from '../../tara-stack';
 
 const TARA_HOME_DIR = '.taraproject';
 const TAPES_DIR = 'tapes';
 const APPS_DIR = 'apps';
 
 /**
- * HomeHandler manages Tara home directory operations.
+ * HomeManager manages Tara home directory operations.
  *
- * This is a base primitive with minimal dependencies. It accepts a SettingsHandler
- * via dependency injection and uses it to resolve the taraHome setting.
+ * Bootstrap pattern: Constructor only uses context.bootstrap (no cross-manager dependencies).
+ * After construction, uses settings cascade which includes bootstrap as fallback source.
  *
  * @example
  * ```typescript
- * const settings = new SettingsHandler();
- * settings.refresh();
- * const home = new HomeHandler(settings);
- * const path = home.getPath();
+ * const tara = new TaraStack({ taraHome: '/custom/path' });
+ * const path = tara.global.home.getPath(); // Uses settings cascade
  * ```
  */
-export class HomeHandler {
-    constructor(private settings: SettingsHandler) {}
+export class HomeManager {
+
+    readonly CONFIG_FILE_NAME = 'config.json';
+
+    constructor(
+        private context: TaraStack
+    ) {
+        // Bootstrap: No logic needed - defaultPath() is pure
+    }
 
     /**
      * Get the Tara project home directory path.
      *
-     * Resolution order:
-     * 1. taraHome setting from SettingsHandler (cascades: env > project > global)
-     * 2. Default: ~/.taraproject
+     * Resolution order (via settings cascade):
+     * 1. runtime > env > project > global > bootstrap > defaultPath()
      *
      * @returns Absolute path to Tara home directory
      */
     getPath(): string {
-        // 1. Check settings system
-        const settingsPath = this.settings.getSetting('taraHome');
+        // Check settings system (includes bootstrap as fallback)
+        const settingsPath = this.context.settings.getSetting('taraHome');
         if (settingsPath) {
             return path.resolve(settingsPath as string);
         }
 
-        // 2. Default fallback
-        return this.defaultPath();
+        // Final fallback
+        return HomeManager.defaultPath();
     }
 
     /**
@@ -104,7 +108,15 @@ export class HomeHandler {
      *
      * @returns Default path: ~/.taraproject
      */
-    defaultPath(): string {
+    static defaultPath(): string {
         return path.join(os.homedir(), TARA_HOME_DIR);
+    }
+
+    /**
+     * Get the global config file path.
+     * Uses bootstrap.taraHome as fallback via settings cascade.
+     */
+    getConfigFilePath(): string {
+        return this.getSubPath(this.CONFIG_FILE_NAME)
     }
 }

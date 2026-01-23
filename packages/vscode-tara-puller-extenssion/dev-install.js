@@ -36,6 +36,13 @@ function main() {
     console.log('\n[3/4] Packaging extension...');
     run('npx @vscode/vsce package --allow-missing-repository --no-dependencies');
 
+    // copy to dist
+    if (!fs.existsSync(path.join(ROOT, "dist"))) {
+        fs.mkdirSync(path.join(ROOT, "dist"));
+    }
+    fs.renameSync(path.join(ROOT, vsixName), vsixPath);
+    console.log(`  Packaged: ${vsixPath}`);
+
     // 4. Install
     console.log('\n[4/4] Installing in VS Code...');
     run(`code --install-extension "${vsixPath}"`);

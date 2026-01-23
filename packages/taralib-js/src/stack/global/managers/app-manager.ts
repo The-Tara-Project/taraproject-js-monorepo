@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { TaraStack } from '../tara-stack';
-import { AppHandler } from '../../base/app-handler';
+import type { TaraStack } from '../../tara-stack';
+import { AppHandler } from '../../../base/app-handler';
 
 /**
  * AppManager provides high-level operations for managing Tara apps.

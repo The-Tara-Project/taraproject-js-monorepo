@@ -1,17 +1,27 @@
-export interface TaraRecordMeta {
+export interface ITaraRecordMeta {
     id: string; // uuid4
+    contentHash?: string; // optional hash of the content for integrity verification
+    canonicalHash?: string; // optional canonical hash for deduplication
+    writer?: string; // optional identifier for who/what created this record
 }
 
 export interface ITaraRecord {
-    __tara: TaraRecordMeta;
+    __tararecord: ITaraRecordMeta;
     [key: string]: unknown;
 }
 
-export interface ITapeMetadata extends ITaraRecord {
-    type: 'taralib/tape-metadata';
-    tapeId: string;
-    formatVersion: string;
+// Tape metadata structure (nested in __taratape field)
+export interface ITaraTapeMeta {
+    id: string; // uuid4 for the tape itself
+    name: string; // human-readable identifier (formerly tapeId)
+    formatVersion: "0.0.1"; // tape format version
     createdAt: string; // ISO 8601
+    writer: string; // required, non-empty
+}
+
+export interface ITapeMetaRecord extends ITaraRecord {
+    type: 'taralib/tape-metadata';
+    __taratape: ITaraTapeMeta;
 }
 
 
@@ -22,15 +32,15 @@ export interface ReadRecordsCallbackArgs {
 }
 export type ReadRecordsCallback = (elm: ReadRecordsCallbackArgs) => void | 'stop';
 
-export type SettingSource = 'runtime' | 'env' | 'project' | 'global';
+export type SettingSource = 'runtime' | 'env' | 'project' | 'global' | 'bootstrap';
 
 export interface SettingsState {
     loaded: boolean;
-    workingDir: string;
     sources: {
         runtime: Record<string, any>;
         env: Record<string, any>;
         project: Record<string, any>;
         global: Record<string, any>;
+        bootstrap: Record<string, any>;
     };
 }

@@ -5,12 +5,12 @@ import { isValidUuid4 } from '../src/base/utils';
 describe('record', () => {
 
     describe('RecordHandler', () => {
-        it('creates record with __tara.id', () => {
+        it('creates record with __tararecord.id', () => {
             const record = new RecordHandler();
             const obj = record.toObject();
-            expect(obj.__tara).toBeDefined();
-            expect(obj.__tara.id).toBeDefined();
-            expect(isValidUuid4(obj.__tara.id)).toBe(true);
+            expect(obj.__tararecord).toBeDefined();
+            expect(obj.__tararecord.id).toBeDefined();
+            expect(isValidUuid4(obj.__tararecord.id)).toBe(true);
         });
 
         it('preserves content in record', () => {
@@ -18,7 +18,7 @@ describe('record', () => {
             const obj = record.toObject();
             expect(obj.foo).toBe('bar');
             expect(obj.count).toBe(42);
-            expect(obj.__tara.id).toBeDefined();
+            expect(obj.__tararecord.id).toBeDefined();
         });
 
         it('generates unique ids', () => {
@@ -38,14 +38,14 @@ describe('record', () => {
             const json = record.toString();
             const parsed = JSON.parse(json);
             expect(parsed.foo).toBe('bar');
-            expect(parsed.__tara).toBeDefined();
-            expect(parsed.__tara.id).toBeDefined();
+            expect(parsed.__tararecord).toBeDefined();
+            expect(parsed.__tararecord.id).toBeDefined();
         });
 
         it('creates from plain object', () => {
             const obj = {
                 foo: 'bar',
-                __tara: { id: '550e8400-e29b-41d4-a716-446655440000' }
+                __tararecord: { id: '550e8400-e29b-41d4-a716-446655440000' }
             };
             const record = RecordHandler.fromObject(obj);
             expect(record.getId()).toBe('550e8400-e29b-41d4-a716-446655440000');
@@ -53,14 +53,14 @@ describe('record', () => {
         });
 
         it('parses from JSON', () => {
-            const json = '{"foo":"bar","__tara":{"id":"550e8400-e29b-41d4-a716-446655440000"}}';
+            const json = '{"foo":"bar","__tararecord":{"id":"550e8400-e29b-41d4-a716-446655440000"}}';
             const record = RecordHandler.fromJSON(json);
             expect(record.getId()).toBe('550e8400-e29b-41d4-a716-446655440000');
             expect(record.getContent().foo).toBe('bar');
         });
 
         it('validates records', () => {
-            const valid = { foo: 'bar', __tara: { id: '550e8400-e29b-41d4-a716-446655440000' } };
+            const valid = { foo: 'bar', __tararecord: { id: '550e8400-e29b-41d4-a716-446655440000' } };
             expect(RecordHandler.isValid(valid)).toBe(true);
         });
 
@@ -68,7 +68,7 @@ describe('record', () => {
             expect(RecordHandler.isValid({ foo: 'bar' })).toBe(false);
             expect(RecordHandler.isValid(null)).toBe(false);
             expect(RecordHandler.isValid('string')).toBe(false);
-            expect(RecordHandler.isValid({ __tara: { id: 'invalid' } })).toBe(false);
+            expect(RecordHandler.isValid({ __tararecord: { id: 'invalid' } })).toBe(false);
         });
 
         it('throws on invalid ID', () => {
@@ -80,7 +80,7 @@ describe('record', () => {
         it('throws on fromObject with invalid record', () => {
             expect(() => {
                 RecordHandler.fromObject({ foo: 'bar' });
-            }).toThrow('Invalid record: missing or invalid __tara.id');
+            }).toThrow('Invalid record: missing or invalid __tararecord.id');
         });
 
         it('throws on fromJSON with invalid JSON', () => {

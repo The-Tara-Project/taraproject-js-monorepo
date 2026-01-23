@@ -1,22 +1,23 @@
 import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import type { SettingSource, SettingsState } from './types';
+import type { SettingSource, SettingsState } from '../../../base/types';
+import { TaraStack } from '../../tara-stack';
 
 /**
- * SettingsHandler manages settings with cascade resolution from multiple sources.
+ * SettingsManager manages settings with cascade resolution from multiple sources.
  *
- * This is a base primitive with zero TaraStack dependency. It can be used standalone
- * or composed into higher-level workflows.
+ * Bootstrap pattern: Uses context.bootstrap as the bottom-most fallback source.
+ * This enables clean construction-time separation - managers can rely on bootstrap
+ * values during construction, and settings cascade becomes available after refresh().
+ *
+ * Priority: runtime > env > project > global > bootstrap
  *
  * @example
  * ```typescript
- * const settings = new SettingsHandler({ myKey: 'myValue' });
- * settings.refresh('/path/to/project');
- * const debug = settings.getSetting('debug', false);
+ * const tara = new TaraStack({ taraHome: '/custom/path' });
+ * const debug = tara.settings.getSetting('debug', false);
  * ```
  */
-export class SettingsHandler {
+export class SettingsManager {
     /**
      * Built-in registry mapping internal keys to source aliases.
      * Maps canonical keys to their aliases and custom source priority.
@@ -26,62 +27,69 @@ export class SettingsHandler {
         aliases?: string[]
         sources?: SettingSource[]
     }> = {
-        debug: {
-            aliases: ['debug', 'DEBUG', 'TARA_DEBUG'],
-            sources: ['project', 'env', 'global'],
-        },
-        logLevel: {
-            aliases: ['logLevel', 'LOG_LEVEL', 'TARA_LOG_LEVEL'],
-        },
-        taraHome: {
-            aliases: ['taraHome', 'TARA_HOME', 'TARAPROJECT_HOME'],
-        },
-    };
+            debug: {
+                aliases: ['debug', 'DEBUG', 'TARA_DEBUG'],
+                sources: ['project', 'env', 'global'],
+            },
+            logLevel: {
+                aliases: ['logLevel', 'LOG_LEVEL', 'TARA_LOG_LEVEL'],
+            },
+            taraHome: {
+                aliases: ['taraHome', 'TARA_HOME', 'TARAPROJECT_HOME'],
+            },
+            writer: {
+                aliases: ['writer', 'TARA_WRITER'],
+            },
+        };
 
     /**
      * Default priority order for source resolution.
      * @private
      */
-    private static readonly SOURCES_PRIORITY: Array<SettingSource> = ['runtime', 'env', 'project', 'global'];
+    private static readonly SOURCES_PRIORITY: Array<SettingSource> = ['runtime', 'env', 'project', 'global', 'bootstrap'];
 
     private state: SettingsState;
-    private runtimeSource: Record<string, any>;
 
-    constructor(runtimeSource: Record<string, any> = {}) {
-        this.runtimeSource = runtimeSource;
-        this.state = this.createInitialState();
+    constructor(
+        private context: TaraStack,
+    ) {
+        // Initialize state
+        this.resetState();
     }
 
     /**
      * Load settings from all sources.
      * Wipes previous state and reloads fresh.
      *
-     * @param workingDir - Optional working directory. Defaults to process.cwd()
+     * @param options - Optional runtime options to set as runtime source
      */
-    refresh(workingDir?: string): void {
-        // 1. Wipe previous state
+    refresh(
+        options?: Record<string, any>
+    ): void {
+        // 1. Wipe previous state (also sets bootstrap from context.bootstrap)
         this.resetState();
 
-        // Set working directory
-        this.state.workingDir = workingDir ? path.resolve(workingDir) : process.cwd();
-
-        // 2. Set runtime source (from constructor)
-        this.state.sources.runtime = this.runtimeSource;
+        // 2. Set runtime source
+        this.state.sources.runtime = options || {};
 
         // 3. Load ENV variables (all of them)
         this.state.sources.env = { ...process.env };
 
         // 4. Load project config
-        const projectPath = path.join(this.state.workingDir, 'taraproject.json');
-        try {
-            const content = fs.readFileSync(projectPath, 'utf-8');
-            this.state.sources.project = JSON.parse(content);
-        } catch (error) {
-            console.warn(`[taralib-settings] Project config not found: ${projectPath}`);
-        }
+        // TODO/LATER : implement project config loading
+        // - integrate with LocalScope
+
+        // const workingDir = this.getSetting('workingDir');
+        // const projectPath = path.join(this.state.workingDir, 'taraproject.json');
+        // try {
+        //     const content = fs.readFileSync(projectPath, 'utf-8');
+        //     this.state.sources.project = JSON.parse(content);
+        // } catch (error) {
+        //     console.warn(`[taralib-settings] Project config not found: ${projectPath}`);
+        // }
 
         // 5. Load global config
-        const globalPath = this.getGlobalConfigPath();
+        const globalPath = this.context.global.home.getConfigFilePath();
         try {
             const content = fs.readFileSync(globalPath, 'utf-8');
             this.state.sources.global = JSON.parse(content);
@@ -99,7 +107,7 @@ export class SettingsHandler {
      *
      * Resolution order:
      * 1. Look up entry for key in SETTING_REGISTRY (if not found, use [key] as single alias)
-     * 2. Use custom source priority from registry entry, or default: runtime > env > project > global
+     * 2. Use custom source priority from registry entry, or default: runtime > env > project > global > bootstrap
      * 3. For each alias, search across sources in priority order
      * 4. Return default value if provided, otherwise undefined
      *
@@ -117,9 +125,9 @@ export class SettingsHandler {
         }
 
         // 1. Get aliases and source priority for this key
-        const entry = SettingsHandler.SETTING_REGISTRY?.[key];
+        const entry = SettingsManager.SETTING_REGISTRY?.[key];
         const aliases = entry?.aliases || [key];
-        const sources = entry?.sources || SettingsHandler.SOURCES_PRIORITY;
+        const sources = entry?.sources || SettingsManager.SOURCES_PRIORITY;
 
         // 2. Search all sources in priority order, checking all aliases in each source
         for (const alias of aliases) {
@@ -147,6 +155,10 @@ export class SettingsHandler {
         return this.state.sources[source][key];
     }
 
+    getRawSource(key: string): Record<string, any> {
+        return this.state.sources[key]
+    }
+
     /**
      * Check if settings have been loaded.
      *
@@ -157,27 +169,18 @@ export class SettingsHandler {
     }
 
     /**
-     * Get the current working directory.
-     *
-     * @returns The working directory path
-     */
-    getWorkingDir(): string {
-        return this.state.workingDir;
-    }
-
-    /**
      * Create the initial state object.
      * @private
      */
     private createInitialState(): SettingsState {
         return {
             loaded: false,
-            workingDir: '',
             sources: {
                 runtime: {},
                 env: {},
                 project: {},
                 global: {},
+                bootstrap: this.context.bootstrap,
             },
         };
     }
@@ -189,18 +192,4 @@ export class SettingsHandler {
     private resetState(): void {
         this.state = this.createInitialState();
     }
-
-    /**
-     * Get the global config file path.
-     * Uses TARA_HOME environment variable if set, otherwise defaults to ~/.taraproject
-     *
-     * Note: We check environment variable directly here (not via settings system) to avoid
-     * chicken-and-egg problem: global config location must be determinable without loading settings.
-     * @private
-     */
-    private getGlobalConfigPath(): string {
-        const taraHome = process.env.TARA_HOME || path.join(os.homedir(), '.taraproject');
-        return path.join(taraHome, 'config.json');
-    }
 }
-

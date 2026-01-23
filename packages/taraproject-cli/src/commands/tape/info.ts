@@ -37,13 +37,15 @@ export function registerInfoCommand(tapeCommand: Command): void {
       console.log(formatKeyValue('File Size', formatFileSize(tape.fileSize)));
       console.log(formatKeyValue('Last Modified', tape.lastModified.toISOString()));
 
-      if (tape.metadata) {
+      if (tape.metadata?.__taratape) {
         console.log();
         console.log(formatHeader('Metadata'));
         console.log();
-        console.log(formatKeyValue('Format Version', String(tape.metadata.formatVersion)));
-        console.log(formatKeyValue('Tape ID', String(tape.metadata.tapeId)));
-        console.log(formatKeyValue('Created At', String(tape.metadata.createdAt)));
+        console.log(formatKeyValue('Format Version', tape.metadata.__taratape.formatVersion));
+        console.log(formatKeyValue('Tape ID (UUID)', tape.metadata.__taratape.id));
+        console.log(formatKeyValue('Tape Name', tape.metadata.__taratape.name));
+        console.log(formatKeyValue('Created At', tape.metadata.__taratape.createdAt));
+        console.log(formatKeyValue('Created By', tape.metadata.__taratape.writer));
       }
     });
 }

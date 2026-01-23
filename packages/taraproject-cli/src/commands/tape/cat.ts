@@ -10,7 +10,7 @@ export function registerCatCommand(tapeCommand: Command): void {
       const tape = new GTapeHandler(tapeId);
 
       // Stream records as JSONL
-      await tape.fileHandler.readRecords(({ parsed }) => {
+      await tape.file.readRecords(({ parsed }) => {
         // Skip metadata record
         if (parsed.type !== 'taralib/tape-metadata') {
           console.log(JSON.stringify(parsed));

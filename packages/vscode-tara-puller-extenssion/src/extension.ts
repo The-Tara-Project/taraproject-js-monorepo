@@ -1,10 +1,75 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { execSync } from 'child_process';
-import { GTapeHandler, RecordHandler, ensureTaraHome, loadRandomQuestion, listQuestionFiles, ensureAppQuestionsFolder, saveQuestion, TaraQuestion } from '@jose_pereiro/taralib-js';
+import { TaraStack, GTapeHandler, RecordHandler } from '@jose_pereiro/taralib-js';
 
 const APP_NAME = 'tara-puller';
 const CONFIRM_PREFIX = '...';
+
+// Question management types and utilities
+interface TaraQuestion {
+    question: string;
+    prompt?: string;
+    placeholder?: string;
+    pullerName: string;
+}
+
+/**
+ * Get the questions folder path for an app
+ */
+function getQuestionsPath(tara: TaraStack): string {
+    const appHandler = tara.global.apps.get(APP_NAME);
+    return path.join(appHandler.getPath(), 'questions');
+}
+
+/**
+ * Ensure the questions folder exists
+ */
+function ensureQuestionsFolder(tara: TaraStack): void {
+    const questionsPath = getQuestionsPath(tara);
+    if (!fs.existsSync(questionsPath)) {
+        fs.mkdirSync(questionsPath, { recursive: true });
+    }
+}
+
+/**
+ * List all question files
+ */
+function listQuestionFiles(tara: TaraStack): string[] {
+    const questionsPath = getQuestionsPath(tara);
+    if (!fs.existsSync(questionsPath)) {
+        return [];
+    }
+    return fs.readdirSync(questionsPath)
+        .filter(f => f.endsWith('.json'))
+        .map(f => f.replace('.json', ''));
+}
+
+/**
+ * Save a question to file
+ */
+function saveQuestion(tara: TaraStack, questionId: string, question: TaraQuestion): void {
+    ensureQuestionsFolder(tara);
+    const questionsPath = getQuestionsPath(tara);
+    const filePath = path.join(questionsPath, `${questionId}.json`);
+    fs.writeFileSync(filePath, JSON.stringify(question, null, 2), 'utf-8');
+}
+
+/**
+ * Load a random question from the questions folder
+ */
+function loadRandomQuestion(tara: TaraStack): TaraQuestion | null {
+    const questionIds = listQuestionFiles(tara);
+    if (questionIds.length === 0) {
+        return null;
+    }
+    const randomId = questionIds[Math.floor(Math.random() * questionIds.length)];
+    const questionsPath = getQuestionsPath(tara);
+    const filePath = path.join(questionsPath, `${randomId}.json`);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    return JSON.parse(content) as TaraQuestion;
+}
 
 /**
  * Get the current tape ID based on the current date (YYYYMM-tara-puller)
@@ -20,7 +85,8 @@ interface PullerState {
     lastPromptTime: number;
     isWindowFocused: boolean;
     intervalId: NodeJS.Timeout | null;
-    tape: GTapeHandler | null;
+    retryTimeoutId: NodeJS.Timeout | null;
+    tara: TaraStack | null;
     minIntervalMs: number;
     checkIntervalMs: number;
     enabled: boolean;
@@ -63,7 +129,8 @@ const state: PullerState = {
     lastPromptTime: 0,
     isWindowFocused: true,
     intervalId: null,
-    tape: null,
+    retryTimeoutId: null,
+    tara: null,
     minIntervalMs: 60 * 1000,
     checkIntervalMs: 10 * 1000,
     enabled: true,
@@ -242,23 +309,39 @@ function loadSettings(): void {
 }
 
 /**
- * Initialize the tape handler with the current tape ID
+ * Initialize the TaraStack (singleton pattern - only init once)
  */
-function initTape(): GTapeHandler {
-    ensureTaraHome();
-    const tape = new GTapeHandler(currentTapeId());
-    tape.fileHandler.instantiate();
-    return tape;
+function initTaraStack(): TaraStack {
+    if (!state.tara) {
+        state.tara = new TaraStack();
+        state.tara.global.home.ensure();
+    }
+    return state.tara;
+}
+
+/**
+ * Get or create tape handler for the current tape ID
+ */
+function getTape(): GTapeHandler {
+    const tara = initTaraStack();
+    const tapeId = currentTapeId();
+
+    // Get or create the tape
+    if (!tara.global.tapes.exists(tapeId)) {
+        return tara.global.tapes.create(tapeId);
+    }
+    return tara.global.tapes.get(tapeId);
 }
 
 /**
  * Ensure the questions folder exists and has at least one question.
- * Creates the default "What are you doing?" question if none exist.
+ * Creates the default "What are you doing/thinking?" question if none exist.
  */
 function ensureInitialQuestions(): void {
-    ensureAppQuestionsFolder(APP_NAME);
+    const tara = initTaraStack();
+    ensureQuestionsFolder(tara);
 
-    const existingQuestions = listQuestionFiles(APP_NAME);
+    const existingQuestions = listQuestionFiles(tara);
     if (existingQuestions.length === 0) {
         // Create the default question
         const defaultQuestion: TaraQuestion = {
@@ -267,7 +350,7 @@ function ensureInitialQuestions(): void {
             placeholder: `e.g., Working on feature X${CONFIRM_PREFIX}`,
             pullerName: APP_NAME,
         };
-        saveQuestion(APP_NAME, 'what-are-you-doing', defaultQuestion);
+        saveQuestion(tara, 'what-are-you-doing', defaultQuestion);
     }
 }
 
@@ -297,9 +380,7 @@ function isEnabled(): boolean {
  * Record a pull entry to the tape with full context
  */
 function recordEntry(response: string | null, dismissed: boolean, context: PullContext): void {
-    if (!state.tape) {
-        return;
-    }
+    const tape = getTape();
 
     const record = new RecordHandler({
         type: 'tara-puller/entry',
@@ -309,7 +390,7 @@ function recordEntry(response: string | null, dismissed: boolean, context: PullC
         context,
     });
 
-    state.tape.fileHandler.appendRecord(record);
+    tape.file.appendRecord(record);
 }
 
 /**
@@ -317,9 +398,20 @@ function recordEntry(response: string | null, dismissed: boolean, context: PullC
  */
 function loadQuestionForDialog(): TaraQuestion | null {
     try {
-        return loadRandomQuestion(APP_NAME);
+        const tara = initTaraStack();
+        return loadRandomQuestion(tara);
     } catch {
         return null;
+    }
+}
+
+/**
+ * Clear any pending retry timeout
+ */
+function clearPendingRetry(): void {
+    if (state.retryTimeoutId) {
+        clearTimeout(state.retryTimeoutId);
+        state.retryTimeoutId = null;
     }
 }
 
@@ -327,7 +419,15 @@ function loadQuestionForDialog(): TaraQuestion | null {
  * Schedule a retry of the prompt after 5 seconds
  */
 function scheduleRetry(): void {
-    setTimeout(() => {
+    // Clear any existing retry timeout
+    if (state.retryTimeoutId) {
+        clearTimeout(state.retryTimeoutId);
+        state.retryTimeoutId = null;
+    }
+
+    // Schedule new retry
+    state.retryTimeoutId = setTimeout(() => {
+        state.retryTimeoutId = null;
         if (isEnabled() && isUserActive()) {
             showPullDialog();
         }
@@ -339,8 +439,8 @@ function scheduleRetry(): void {
  * Returns true if dialog was shown, false if skipped due to loading failure
  */
 async function showPullDialog(): Promise<boolean> {
-    // Refresh tape to use current month's tape
-    state.tape = initTape();
+    // Clear any pending retry since we're showing a dialog now
+    clearPendingRetry();
 
     // Load question from file
     const question = loadQuestionForDialog();
@@ -383,11 +483,13 @@ async function showPullDialog(): Promise<boolean> {
         scheduleRetry();
     } else if (response === CONFIRM_PREFIX) {
         // User explicitly dismissed by typing just "..."
+        clearPendingRetry();
         recordEntry(null, true, context);
         vscode.window.setStatusBarMessage('Tara Puller: Dismissed', 3000);
         vscode.window.showInformationMessage('Tara Puller: Question dismissed');
     } else {
         // User submitted content - strip the CONFIRM_PREFIX suffix
+        clearPendingRetry();
         const cleanResponse = response.endsWith(CONFIRM_PREFIX) ? response.slice(0, -CONFIRM_PREFIX.length) : response;
         recordEntry(cleanResponse, false, context);
         vscode.window.setStatusBarMessage('Tara Puller: Recorded', 3000);
@@ -558,4 +660,5 @@ export function activate(context: vscode.ExtensionContext): void {
 
 export function deactivate(): void {
     stopChecker();
+    clearPendingRetry();
 }

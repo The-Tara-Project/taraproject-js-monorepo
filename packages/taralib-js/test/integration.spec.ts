@@ -1,43 +1,31 @@
-import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ITaraRecord } from '../src';
 import {
-    HomeHandler,
     RecordHandler,
-    SettingsHandler,
-    GTapeHandler,
+    TaraStack,
 } from '../src';
 import { setupTestEnv, teardownTestEnv } from './utils';
 
-// Helper function to build tape path (replaces deprecated buildGlobalTapePath)
-function buildTapePath(tapeId: string): string {
-    const settings = new SettingsHandler();
-    settings.refresh();
-    const home = new HomeHandler(settings);
-    return path.join(home.getTapesPath(), `${tapeId}.tara.jsonl`);
-}
-
 describe('integration: create -> store -> read -> check', () => {
 
+    let tara: TaraStack;
+    let testTapeId: string;
+
     beforeEach(() => {
-        // setup env
-        setupTestEnv();
+        // setup env with specific writer
+        tara = setupTestEnv({ writer: 'integration-test' });
+        testTapeId = `integration-test-${Date.now()}`;
     });
 
     afterEach(() => {
         // clear env
-        teardownTestEnv();
+        teardownTestEnv(tara);
     });
-
-    const testTapeId = `integration-test-${Date.now()}`;
 
     it('full workflow: create tape, add record, read back, verify content', async () => {
         // 1. Create a new tape
-        const tape = new GTapeHandler(
-            testTapeId,
-            buildTapePath(testTapeId)
-        );
-        tape.fileHandler.instantiate();
+        const tape = tara.global.tapes.get(testTapeId);
+        tape.instantiate();
         const tapePath = tape.getPath();
         expect(tapePath).toContain(testTapeId);
 
@@ -53,17 +41,18 @@ describe('integration: create -> store -> read -> check', () => {
         const record = new RecordHandler(testContent);
 
         // 3. Append record to tape
-        tape.fileHandler.appendRecord(record);
+        tape.appendRecord(record);
 
         // 4. Read and verify metadata
-        const metadata = await tape.fileHandler.readMetadata();
-        expect(metadata.tapeId).toBe(testTapeId);
-        expect(metadata.formatVersion).toBe('1.0.0');
-        expect(metadata.createdAt).toBeDefined();
+        const metadata = await tape.readMetadata();
+        expect(metadata.__taratape.name).toBe(testTapeId);
+        expect(metadata.__taratape.formatVersion).toBe('0.0.1');
+        expect(metadata.__taratape.createdAt).toBeDefined();
+        expect(metadata.__taratape.writer).toBe('integration-test');
 
         // 5. Read and verify records
         const records: ITaraRecord[] = [];
-        await tape.fileHandler.readRecords(({ parsed }) => {
+        await tape.readRecords(({ parsed }) => {
             records.push(parsed);
         });
 
@@ -75,16 +64,13 @@ describe('integration: create -> store -> read -> check', () => {
         expect(retrievedRecord.timestamp).toBe(testContent.timestamp);
         expect(retrievedRecord.nested).toEqual(testContent.nested);
 
-        // Verify __tara.id is preserved
-        expect(retrievedRecord.__tara.id).toBe(record.__tara.id);
+        // Verify __tararecord.id is preserved
+        expect(retrievedRecord.__tararecord.id).toBe(record.__tararecord.id);
     });
 
     it.skip('supports multiple records in sequence', async () => {
-        const tape = new GTapeHandler(
-            testTapeId,
-            buildTapePath(testTapeId)
-        );
-        tape.fileHandler.instantiate();
+        const tape = tara.global.tapes.get(testTapeId);
+        tape.instantiate();
 
         // Add multiple records
         const records = [
@@ -94,12 +80,12 @@ describe('integration: create -> store -> read -> check', () => {
         ];
 
         for (const record of records) {
-            tape.fileHandler.appendRecord(record);
+            tape.appendRecord(record);
         }
 
         // Read and verify
         const readRecords: ITaraRecord[] = [];
-        await tape.fileHandler.readRecords(({ parsed }) => {
+        await tape.readRecords(({ parsed }) => {
             readRecords.push(parsed);
         });
 
@@ -109,7 +95,7 @@ describe('integration: create -> store -> read -> check', () => {
 
         for (let i = 0; i < records.length; i++) {
             expect(dataRecords[i].index).toBe(i);
-            expect(dataRecords[i].__tara.id).toBe(records[i].__tara.id);
+            expect(dataRecords[i].__tararecord.id).toBe(records[i].__tararecord.id);
         }
     });
 });

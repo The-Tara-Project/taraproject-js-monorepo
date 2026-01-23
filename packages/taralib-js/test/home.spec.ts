@@ -2,83 +2,81 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { HomeHandler, SettingsHandler } from '../src';
+import { TaraStack, HomeManager } from '../src';
 import { setupTestEnv, teardownTestEnv } from './utils';
 
 
-describe('HomeHandler', () => {
-    let settings: SettingsHandler;
-    let home: HomeHandler;
+describe('HomeManager', () => {
+    let tara: TaraStack;
 
     beforeEach(() => {
-        setupTestEnv();
-        settings = new SettingsHandler();
-        settings.refresh();
-        home = new HomeHandler(settings);
+        tara = setupTestEnv();
     });
 
     afterEach(() => {
-        teardownTestEnv();
+        teardownTestEnv(tara);
     });
 
     describe('getPath', () => {
         it('returns path from settings', () => {
             const customPath = '/tmp/custom-tara';
             process.env.TARA_HOME = customPath;
-            settings.refresh();
-            const result = home.getPath();
+            const customTara = new TaraStack();
+            const result = customTara.global.home.getPath();
             expect(result).toBe(path.resolve(customPath));
         });
 
-        it('returns default path when settings not loaded', () => {
-            const freshSettings = new SettingsHandler();
-            const freshHome = new HomeHandler(freshSettings);
-            const result = freshHome.getPath();
-            expect(result).toBe(home.defaultPath());
+        it('returns default path when TARA_HOME not set', () => {
+            const savedTaraHome = process.env.TARA_HOME;
+            delete process.env.TARA_HOME;
+            const freshTara = new TaraStack();
+            const result = freshTara.global.home.getPath();
+            expect(result).toBe(HomeManager.defaultPath());
+            process.env.TARA_HOME = savedTaraHome;
         });
     });
 
     describe('getTapesPath', () => {
         it('returns tapes subfolder', () => {
-            const result = home.getTapesPath();
+            const result = tara.global.home.getTapesPath();
             expect(result).toContain('tapes');
-            expect(result).toBe(path.join(home.getPath(), 'tapes'));
+            expect(result).toBe(path.join(tara.global.home.getPath(), 'tapes'));
         });
     });
 
     describe('getAppsPath', () => {
         it('returns apps subfolder', () => {
-            const result = home.getAppsPath();
+            const result = tara.global.home.getAppsPath();
             expect(result).toContain('apps');
-            expect(result).toBe(path.join(home.getPath(), 'apps'));
+            expect(result).toBe(path.join(tara.global.home.getPath(), 'apps'));
         });
     });
 
     describe('getSubPath', () => {
         it('returns custom subfolder', () => {
-            const result = home.getSubPath('custom');
+            const result = tara.global.home.getSubPath('custom');
             expect(result).toContain('custom');
-            expect(result).toBe(path.join(home.getPath(), 'custom'));
+            expect(result).toBe(path.join(tara.global.home.getPath(), 'custom'));
         });
     });
 
     describe('ensure', () => {
         it('creates tapes directory', () => {
-            home.ensure();
-            const tapesPath = home.getTapesPath();
+            tara.global.home.ensure();
+            const tapesPath = tara.global.home.getTapesPath();
             expect(fs.existsSync(tapesPath)).toBe(true);
             expect(fs.statSync(tapesPath).isDirectory()).toBe(true);
         });
 
         it('succeeds if directories already exist', () => {
-            home.ensure();
-            expect(() => home.ensure()).not.toThrow();
+            tara.global.home.ensure();
+            expect(() => tara.global.home.ensure()).not.toThrow();
         });
     });
 
     describe('defaultPath', () => {
         it('returns ~/.taraproject', () => {
-            const result = home.defaultPath();
+            const result = HomeManager.defaultPath();
             expect(result).toBe(path.join(os.homedir(), '.taraproject'));
         });
     });

@@ -1,14 +1,16 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { TaraStack } from '../tara-stack';
-import { GTapeHandler } from '../../base/tape-handler';
+import type { TaraStack } from '../../tara-stack';
+import { GTapeHandler } from '../../../base/tape-handler';
 
 /**
  * GTapeManager provides high-level operations for managing Tara tapes in the global scope (~/.taraproject/tapes/).
  *
  */
 export class GTapeManager {
-    constructor(private context: TaraStack) { }
+    constructor(private context: TaraStack) { 
+        // Bootstrap: No logic needed
+    }
 
     /**
      * Build the file path for a tape given its ID.
@@ -16,7 +18,6 @@ export class GTapeManager {
      */
     private buildTapePath(tapeId: string): string {
         const tapesPath = this.context.global.home.getTapesPath();
-        console.log("Tapes path:", tapesPath);
         const tapeName = `${tapeId}.tara.jsonl`;
         return path.join(tapesPath, tapeName);
     }
@@ -42,25 +43,8 @@ export class GTapeManager {
      * @returns A new GTapeHandler instance
      */
     get(tapeId: string): GTapeHandler {
-        return new GTapeHandler(tapeId, this.buildTapePath(tapeId));
-    }
-
-    /**
-     * Create a new tape with metadata record.
-     * Auto-creates ~/.taraproject/tapes/ folder.
-     *
-     * @param tapeId - The ID for the new tape
-     * @returns A GTapeHandler for the created tape
-     * @throws Error if tape already exists
-     */
-    create(tapeId: string): GTapeHandler {
-        if (this.exists(tapeId)) {
-            throw new Error(`Tape "${tapeId}" already exists`);
-        }
-        const tape = new GTapeHandler(tapeId, this.buildTapePath(tapeId));
-        tape.fileHandler.instantiate(); // Creates folders + metadata
-        tape.gitHandler.init(); // Initialize git repo
-        return tape;
+        const writer = this.context.settings.getSetting('writer');
+        return new GTapeHandler(tapeId, this.buildTapePath(tapeId), { writer });
     }
 
     /**

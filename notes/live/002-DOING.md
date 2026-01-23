@@ -1,4 +1,9 @@
-## Make the puller load the question from a file at `.taraproject/apps/<app_name>/questions`
+## DONE: Refactor sub-handlers to load dynamically
+- sun-handler will be undefined until first used
+- use getters to load them on demand
+- this will speed up the instantiation of handlers
+
+## DONE: Make the puller load the question from a file at `.taraproject/apps/<app_name>/questions`
 - i. create `.taraproject/apps/<app_name>` interface on `taralib-ts`
 - ii. make `vscode-tara-puller-001-extension` load one question from the files at `.taraproject/apps/<app_name>/questions` instead of hardcoding it
 - peek question randomly from the files in that folder
@@ -8,7 +13,7 @@
 - A question file is just a `.json`
 - iii. Populate with the first (current) question `What are you doing?`
 
-## Make anothre vscode extension
+## DONE: Make another vscode extension
 - A `taralib-extension`
 - for the moment, it will just scan the `.taraproject/logs/` for errors and show it to the user as a notification in vecode
 - 

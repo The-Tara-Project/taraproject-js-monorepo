@@ -3,92 +3,59 @@ import { TaraStack } from '../src';
 import { setupTestEnv, teardownTestEnv } from './utils';
 
 describe('TaraStack Scopes', () => {
-  beforeEach(setupTestEnv);
-  afterEach(teardownTestEnv);
+    let tara: TaraStack;
 
-  describe('Global Scope', () => {
-    it('should provide access to global managers', () => {
-      const tara = new TaraStack();
-
-      expect(tara.global).toBeDefined();
-      expect(tara.global.tapes).toBeDefined();
-      expect(tara.global.apps).toBeDefined();
-      expect(tara.global.records).toBeDefined();
-      expect(tara.global.home).toBeDefined();
+    beforeEach(() => {
+        // setup env
+        tara = setupTestEnv();
     });
 
-    it('should work with existing global operations', () => {
-      const tara = new TaraStack();
-
-      const tape = tara.global.tapes.create('test-tape');
-      expect(tape.getTapeId()).toBe('test-tape');
-      expect(tara.global.tapes.exists('test-tape')).toBe(true);
-    });
-  });
-
-  describe('Local Scope', () => {
-    it('should provide access to local managers', () => {
-      const tara = new TaraStack();
-
-      expect(tara.local).toBeDefined();
-      expect(tara.local.tapes).toBeDefined();
-      expect(tara.local.apps).toBeDefined();
-      expect(tara.local.records).toBeDefined();
-      expect(tara.local.home).toBeDefined();
+    afterEach(() => {
+        // clear env
+        teardownTestEnv(tara);
     });
 
-    it('should use process.cwd() as default working directory', () => {
-      const tara = new TaraStack();
+    describe('Global Scope', () => {
+        it('should provide access to global managers', () => {
 
-      expect(tara.local.getWorkingDir()).toBe(process.cwd());
+            expect(tara.global).toBeDefined();
+            expect(tara.global.tapes).toBeDefined();
+            expect(tara.global.apps).toBeDefined();
+            expect(tara.global.home).toBeDefined();
+        });
+
+        it('should work with existing global operations', () => {
+
+            const tape = tara.global.tapes.get('test-tape');
+            tape.instantiate();
+            expect(tape.getTapeId()).toBe('test-tape');
+            expect(tara.global.tapes.exists('test-tape')).toBe(true);
+        });
     });
 
-    it('should accept custom working directory', () => {
-      const customDir = '/tmp/my-project';
-      const tara = new TaraStack({ workingDir: customDir });
-
-      expect(tara.local.getWorkingDir()).toBe(customDir);
+    describe('Local Scope', () => {
+        // #AGENTS/NOTE
+        // DO NOT IMPLEMENT YET
+        // LEFT BLANK FOR FUTURE EXPANSION        
     });
 
-    it('should throw not-implemented errors for unfinished features', () => {
-      const tara = new TaraStack();
+    describe('Scope Requirement', () => {
+        it('should require explicit scope access', () => {
 
-      expect(() => tara.local.tapes.create('test')).toThrow('not yet implemented');
-      expect(() => tara.local.apps.create('test')).toThrow('not yet implemented');
+            // Direct access doesn't exist
+            expect((tara as any).tapes).toBeUndefined();
+            expect((tara as any).apps).toBeUndefined();
+
+            // Must use scopes
+            expect(tara.global.tapes).toBeDefined();
+        });
     });
 
-    it('should return empty lists for local resources', () => {
-      const tara = new TaraStack();
+    describe('Settings at Stack Level', () => {
+        it('should provide settings at stack level, not in scopes', () => {
 
-      expect(tara.local.tapes.list()).toEqual([]);
-      expect(tara.local.apps.list()).toEqual([]);
+            // Settings are at stack level
+            expect(tara.settings).toBeDefined();
+        });
     });
-  });
-
-  describe('Scope Requirement', () => {
-    it('should require explicit scope access', () => {
-      const tara = new TaraStack();
-
-      // Direct access doesn't exist
-      expect((tara as any).tapes).toBeUndefined();
-      expect((tara as any).apps).toBeUndefined();
-
-      // Must use scopes
-      expect(tara.global.tapes).toBeDefined();
-      expect(tara.local.tapes).toBeDefined();
-    });
-  });
-
-  describe('Settings at Stack Level', () => {
-    it('should provide settings at stack level, not in scopes', () => {
-      const tara = new TaraStack();
-
-      // Settings are at stack level
-      expect(tara.settings).toBeDefined();
-
-      // Not in scopes
-      expect((tara.global as any).settings).toBeUndefined();
-      expect((tara.local as any).settings).toBeUndefined();
-    });
-  });
 });

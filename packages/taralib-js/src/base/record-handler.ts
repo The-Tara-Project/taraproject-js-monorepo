@@ -1,6 +1,7 @@
 import * as crypto from 'crypto';
-import type { ITaraRecord } from './types';
+import type { ITaraRecord, ITaraRecordMeta } from './types';
 import { isValidUuid4 } from './utils';
+
 
 /**
  * RecordHandler is a class-based state machine for managing record workflows.
@@ -8,27 +9,43 @@ import { isValidUuid4 } from './utils';
  * Internal state can change for system operations (serialization caching, validation state, hashing).
  */
 export class RecordHandler<T extends Record<string, unknown> = Record<string, unknown>> {
-    private readonly id: string;
-    private readonly content: Readonly<T>;
+    private auxmeta: ITaraRecordMeta;       // auxilary metadata
+    private readonly content: Readonly<T>;  // auxilary content
+
     private serializedCache?: string;
 
     /**
-     * Get the __tara metadata object.
+     * Get the __tararecord metadata object.
      */
-    get __tara(): { id: string } {
-        return { id: this.id };
+    get __tararecord(): ITaraRecordMeta {
+        const meta: ITaraRecordMeta = { id: this.auxmeta.id };
+        if (this.auxmeta.writer) {
+            meta.writer = this.auxmeta.writer;
+        }
+        if (this.auxmeta.contentHash) {
+            meta.contentHash = this.auxmeta.contentHash;
+        }
+        return meta;
     }
 
     /**
      * Create a new RecordHandler.
      * @param content - The record content (will be frozen for immutability)
      * @param id - Optional UUID (generated if not provided)
+     * @param writer - Optional identifier for who/what created this record
      */
-    constructor(content: T = {} as T, id?: string) {
-        this.id = id || crypto.randomUUID();
+    constructor(content: T = {} as T,
+        options?: {} & ITaraRecordMeta
+    ) {
+        this.auxmeta = {
+            id: options?.id || crypto.randomUUID(),
+            writer: options?.writer, 
+            contentHash: options?.contentHash,
+            canonicalHash: options?.canonicalHash
+        };
 
         // Validate ID if provided
-        if (!isValidUuid4(this.id)) {
+        if (!isValidUuid4(this.auxmeta.id)) {
             throw new Error('Invalid record: invalid UUID v4 format for id');
         }
 
@@ -40,7 +57,7 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
      * Get the record ID.
      */
     getId(): string {
-        return this.id;
+        return this.auxmeta.id;
     }
 
     /**
@@ -51,13 +68,13 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
     }
 
     /**
-     * Convert the record to a plain object with __tara metadata.
+     * Convert the record to a plain object with __tararecord metadata.
      * This is the format used for serialization and external access.
      */
-    toObject(): T & { __tara: { id: string } } {
+    toObject(): T & { __tararecord: ITaraRecordMeta } {
         return {
             ...this.content,
-            __tara: { id: this.id }
+            __tararecord: this.__tararecord
         };
     }
 
@@ -72,6 +89,7 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
         return this.serializedCache;
     }
 
+    // MARK: Static methods
     /**
      * Validate a plain object as a valid RecordHandler structure.
      */
@@ -80,10 +98,10 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
             return false;
         }
         const record = obj as Record<string, unknown>;
-        if (typeof record.__tara !== 'object' || record.__tara === null) {
+        if (typeof record.__tararecord !== 'object' || record.__tararecord === null) {
             return false;
         }
-        const meta = record.__tara as Record<string, unknown>;
+        const meta = record.__tararecord as Record<string, unknown>;
         if (typeof meta.id !== 'string') {
             return false;
         }
@@ -92,20 +110,21 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
 
     /**
      * Create a RecordHandler from a plain object.
-     * The object must have a valid __tara.id field.
+     * The object must have a valid __tararecord.id field.
      */
     static fromObject<T extends Record<string, unknown>>(obj: T & Record<string, unknown>): RecordHandler<T> {
         if (!RecordHandler._isValidRecordObject(obj)) {
-            throw new Error('Invalid record: missing or invalid __tara.id');
+            throw new Error('Invalid record: missing or invalid __tararecord.id');
         }
 
-        const meta = obj.__tara as Record<string, unknown>;
+        const meta = obj.__tararecord as Record<string, unknown>;
         const id = meta.id as string;
+        const writer = meta?.writer as string | undefined;
 
-        // Extract content (everything except __tara)
-        const { __tara, ...content } = obj;
+        // Extract content (everything except __tararecord)
+        const { __tararecord, ...content } = obj;
 
-        return new RecordHandler<T>(content as T, id);
+        return new RecordHandler<T>(content as T, { id, writer });
     }
 
     /**

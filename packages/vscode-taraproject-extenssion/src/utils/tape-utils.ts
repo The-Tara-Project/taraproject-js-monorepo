@@ -3,6 +3,8 @@ import * as path from 'node:path';
 import {
   TaraStack,
   type ITaraRecord,
+  type ITapeMetaRecord,
+  type GTapeHandler,
 } from '@jose_pereiro/taralib-js';
 import type { TapeInfo } from '../models/types';
 
@@ -29,9 +31,9 @@ export async function getAllTapes(tara: TaraStack): Promise<TapeInfo[]> {
       const tape = tara.global.tapes.get(tapeId);
       const stats = fs.statSync(filePath);
 
-      let metadata: ITaraRecord | null = null;
+      let metadata: ITapeMetaRecord | null = null;
       try {
-        metadata = await tape.fileHandler.readMetadata();
+        metadata = await tape.file.readMetadata();
       } catch (error) {
         // Metadata is optional, continue without it
       }
@@ -41,7 +43,7 @@ export async function getAllTapes(tara: TaraStack): Promise<TapeInfo[]> {
       tapes.push({
         tapeId,
         filePath,
-        createdAt: metadata?.createdAt ? new Date(metadata.createdAt as string) : stats.birthtime,
+        createdAt: metadata?.__taratape?.createdAt ? new Date(metadata.__taratape.createdAt) : stats.birthtime,
         recordCount,
         fileSize: stats.size,
         lastModified: stats.mtime,
@@ -62,7 +64,7 @@ export async function getAllTapes(tara: TaraStack): Promise<TapeInfo[]> {
 export async function countRecords(tape: GTapeHandler): Promise<number> {
   let count = 0;
 
-  await tape.fileHandler.readRecords(({ parsed }) => {
+  await tape.file.readRecords(({ parsed }) => {
     // Skip metadata record
     if (parsed.type !== 'taralib/tape-metadata') {
       count++;

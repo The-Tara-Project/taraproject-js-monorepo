@@ -2,30 +2,28 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { GitHandler, SettingsHandler, HomeHandler } from '../src';
+import { GitHandler, TaraStack } from '../src';
 import { setupTestEnv, teardownTestEnv } from './utils';
 
 describe('git', () => {
-    
+
 
     let testRepoPath: string;
     let repo: GitHandler;
+    let tara: TaraStack;
 
     beforeEach(() => {
         // setup env
-        setupTestEnv();
+        tara = setupTestEnv();
 
         // setup repo
-        const settings = new SettingsHandler();
-        settings.refresh();
-        const home = new HomeHandler(settings);
-        testRepoPath = home.getPath();
+        testRepoPath = tara.global.home.getPath();
         repo = new GitHandler(testRepoPath);
     });
 
     afterEach(() => {
         // clear env
-        teardownTestEnv();
+        teardownTestEnv(tara);
     });
 
     describe('new GitHandler', () => {

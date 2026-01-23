@@ -1,27 +1,28 @@
 // ===== New TaraStack API =====
 export { TaraStack } from './stack/tara-stack';
-export type { TaraStackOptions } from './stack/tara-stack';
 
 // Scopes
-export { GlobalScope } from './stack/scopes/global-scope';
-export {
-    LocalAppManager,
-    LocalHomeManager, LocalScope,
-    LocalTapeManager
-} from './stack/scopes/local-scope';
+export { GlobalScope } from './stack/global/global-scope';
 
 // Managers (for direct use if needed)
-export { AppManager } from './stack/managers/app-manager';
-export { GTapeManager } from './stack/managers/tape-manager';
+export { AppManager } from './stack/global/managers/app-manager';
+export { GTapeManager } from './stack/global/managers/tape-manager';
 
 // ===== Existing exports =====
 
 // Types
-export type { ITapeMetadata, ITaraRecord, SettingSource, SettingsState, TaraRecordMeta } from './base/types';
+export type {
+    ITapeMetaRecord,    // Tape metadata (nested in __taratape)
+    ITaraTapeMeta,      // __taratape structure
+    ITaraRecord,
+    SettingSource,
+    SettingsState,
+    ITaraRecordMeta
+} from './base/types';
 
 
-// Home handler (primary way to manage paths - use TaraStack.global.home or SettingsHandler + HomeHandler)
-// See HomeHandler class for path resolution and directory management
+// Home handler (primary way to manage paths - use TaraStack.global.home or SettingsManager + HomeManager)
+// See HomeManager class for path resolution and directory management
 
 // Record utilities
 export { RecordHandler } from './base/record-handler';
@@ -29,14 +30,11 @@ export { RecordHandler } from './base/record-handler';
 // Tape operations
 export { GTapeHandler } from './base/tape-handler';
 
-export { TapeFileHandler } from './base/tape-file-handler';
-export { GTapeGitHandler } from './base/tape-git-handler';
-
 // Settings system
-export { SettingsHandler } from './base/settings-handler';
+export { SettingsManager } from './stack/global/managers/settings-manager';
 
 // Home handler
-export { HomeHandler } from './base/home-handler';
+export { HomeManager } from './stack/global/managers/home-manager';
 
 // Git operations
 export { GitHandler } from './base/git-handler';
