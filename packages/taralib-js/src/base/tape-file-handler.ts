@@ -1,9 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
-import { TaraRecord } from './record';
+import { RecordHandler } from './record-handler';
 import type { ReadRecordsCallback, ReadRecordsCallbackArgs, ITaraRecord, ITapeMetadata } from './types';
-import { TapeHandler } from './tape-handler';
+import { GTapeHandler } from './tape-handler';
 
 const FORMAT_VERSION = '1.0.0';
 
@@ -17,7 +17,7 @@ export class TapeFileHandler {
     private metadata?: ITapeMetadata;
 
     constructor(
-        private tape: TapeHandler
+        private tape: GTapeHandler
     ) {
         this.tapeId = tape.getTapeId();
         this.path = tape.getPath();
@@ -27,7 +27,7 @@ export class TapeFileHandler {
      * Validate if an object is valid tape metadata.
      */
     private _isValidTapeMetadata(obj: unknown): obj is ITapeMetadata {
-        if (!TaraRecord.isValid(obj)) {
+        if (!RecordHandler.isValid(obj)) {
             return false;
         }
 
@@ -55,8 +55,8 @@ export class TapeFileHandler {
     /**
      * Create tape metadata record.
      */
-    private _builtTapeMetadata(): TaraRecord {
-        return new TaraRecord({
+    private _builtTapeMetadata(): RecordHandler {
+        return new RecordHandler({
             type: 'taralib/tape-metadata',
             tapeId: this.tapeId,
             formatVersion: FORMAT_VERSION,
@@ -72,6 +72,7 @@ export class TapeFileHandler {
     private _bootstrapTape(): void {
         // Ensure parent directory exists
         const dir = path.dirname(this.path);
+        console.log("Creating tape directory:", dir);
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
@@ -113,7 +114,7 @@ export class TapeFileHandler {
             }
 
             try {
-                const taraRecord = TaraRecord.fromJSON(line);
+                const taraRecord = RecordHandler.fromJSON(line);
                 const parsed = taraRecord.toObject() as ITaraRecord;
 
                 const elm: ReadRecordsCallbackArgs = {
@@ -136,7 +137,7 @@ export class TapeFileHandler {
     /**
      * Append a single record to the tape.
      */
-    appendRecord(record: TaraRecord): void {
+    appendRecord(record: RecordHandler): void {
         const line = record.toString() + '\n';
         fs.appendFileSync(this.path, line, 'utf-8');
     }
@@ -144,7 +145,7 @@ export class TapeFileHandler {
     /**
      * Append multiple records to the tape in a single operation.
      */
-    appendRecordBatch(records: TaraRecord[]): void {
+    appendRecordBatch(records: RecordHandler[]): void {
         const content = records.map(
             record => record.toString()
         ).join('\n') + '\n';

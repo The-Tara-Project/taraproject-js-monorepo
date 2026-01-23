@@ -22,12 +22,13 @@ export interface ReadRecordsCallbackArgs {
 }
 export type ReadRecordsCallback = (elm: ReadRecordsCallbackArgs) => void | 'stop';
 
-export type SettingSource = 'env' | 'project' | 'global';
+export type SettingSource = 'runtime' | 'env' | 'project' | 'global';
 
 export interface SettingsState {
     loaded: boolean;
     workingDir: string;
     sources: {
+        runtime: Record<string, any>;
         env: Record<string, any>;
         project: Record<string, any>;
         global: Record<string, any>;

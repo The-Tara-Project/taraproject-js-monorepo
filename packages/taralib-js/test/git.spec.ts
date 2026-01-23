@@ -2,8 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { ensureTaraHome, getTaraHomePath, GitHandler, refreshSettings } from '../src';
-import { setupTestEnv, setupTestHomeDir, teardownTestEnv } from './utils';
+import { GitHandler, SettingsHandler, HomeHandler } from '../src';
+import { setupTestEnv, teardownTestEnv } from './utils';
 
 describe('git', () => {
     
@@ -12,14 +12,15 @@ describe('git', () => {
     let repo: GitHandler;
 
     beforeEach(() => {
-
         // setup env
         setupTestEnv();
 
         // setup repo
-        testRepoPath = getTaraHomePath();
+        const settings = new SettingsHandler();
+        settings.refresh();
+        const home = new HomeHandler(settings);
+        testRepoPath = home.getPath();
         repo = new GitHandler(testRepoPath);
-
     });
 
     afterEach(() => {

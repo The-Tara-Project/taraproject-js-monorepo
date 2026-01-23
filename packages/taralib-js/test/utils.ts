@@ -1,11 +1,8 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { getTaraHomePath, refreshSettings } from "../src";
-import { dir } from 'console';
-import { defaultTaraHomePath, resetHomeHandler } from '../src/base/home';
+import { SettingsHandler, HomeHandler } from "../src";
 import { exit } from 'process';
-import { resetSettings } from '../src/base/settings';
 
 export function randomTestDir(
     label: string = 'taratest'
@@ -21,23 +18,29 @@ export function setupTestEnv(
 ): void {
     // set up home dir
     process.env.TARA_HOME = dir;
-    refreshSettings();
 
-    console.log(`Test TARA_HOME set to: ${getTaraHomePath()}`);
+    const settings = new SettingsHandler();
+    settings.refresh();
+    const home = new HomeHandler(settings);
 
-    const testDir = getTaraHomePath();
-    const defaultDir = defaultTaraHomePath();
+    console.log(`Test TARA_HOME set to: ${home.getPath()}`);
+
+    const testDir = home.getPath();
+    const defaultDir = home.defaultPath();
     if (testDir === defaultDir) {
         console.error('Refusing to work in default TARA_HOME directory during test setup');
         exit(1);
     }
-
 }
 
 export function teardownTestEnv(): void {
     // delete test dir
-    const testDir = getTaraHomePath();
-    const defaultDir = defaultTaraHomePath();
+    const settings = new SettingsHandler();
+    settings.refresh();
+    const home = new HomeHandler(settings);
+
+    const testDir = home.getPath();
+    const defaultDir = home.defaultPath();
     if (testDir === defaultDir) {
         console.error('Refusing to delete default TARA_HOME directory during test teardown');
         exit(1);
@@ -46,6 +49,4 @@ export function teardownTestEnv(): void {
 
     // clean up home dir env var
     delete process.env.TARA_HOME;
-    resetSettings();
-    resetHomeHandler();
 }

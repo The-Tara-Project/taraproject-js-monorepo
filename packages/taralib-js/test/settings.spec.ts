@@ -4,7 +4,7 @@ import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRawValue, getSetting, isSettingsLoaded, refreshSettings } from '../src';
 // @ts-ignore - resetSettings is internal for testing
-import { resetSettings } from '../src/base/settings';
+import { resetSettings } from '../src/base/settings-handler';
 import { randomTestDir } from './utils';
 
 describe('Settings System', () => {

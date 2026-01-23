@@ -1,19 +1,6 @@
-## Refactor 
-
-- check in `notes/live/110-tara-stack-vs-base.md`
-- see this block
-```
-#### Settings Primitives
-- **`settings.ts`** - Settings functions
-  - `refreshSettings(workingDir?)` - load settings
-  - `getSetting(key, defaultValue?)` - retrieve value
-  - `getRawValue(key, source)` - get from specific source
-  - `isSettingsLoaded()` - check state
-  - Pure functions, no TaraStack
-```
-- I think we should tranform settings.ts to use a class 
-- named `SettingsHandler`
-- similar to the other primitives
-- this calss will keep all state of the setting system
-
-- lets make a plan
+## global vs local managers
+- I think we need to have global vs local managers/handlers types
+- e.g. LTapeManager vs GTapeManager
+- so that we can have clear separation of concerns and functionality
+- for instance, a local tape handler should provide a different git workflow than the global one
+- now, I don't know if 

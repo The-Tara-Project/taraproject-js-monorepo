@@ -4,7 +4,7 @@
     "workspaces": [
         "packages/taralib-js",
         "packages/tara-cli",
-        "packages/vscode-tara-puller-001-extenssion"
+        "packages/tara-puller-vscode-extenssion"
     ],
     "scripts": {
         "build": "npm run build --workspaces",

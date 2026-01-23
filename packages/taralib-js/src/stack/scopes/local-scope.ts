@@ -1,6 +1,3 @@
-import type { TaraStack } from '../tara-stack';
-import { RecordManager } from '../managers/record-manager';
-
 /**
  * LocalScope provides access to local project Tara resources.
  * Currently a stub - full implementation coming later.
@@ -8,13 +5,11 @@ import { RecordManager } from '../managers/record-manager';
 export class LocalScope {
   readonly tapes: LocalTapeManager;
   readonly apps: LocalAppManager;
-  readonly records: RecordManager; // Shared - no scope dependency
   readonly home: LocalHomeManager;
 
   private workingDir: string;
 
   constructor(
-    context: TaraStack,
     workingDir: string = process.cwd()
   ) {
     this.workingDir = workingDir;
@@ -23,9 +18,6 @@ export class LocalScope {
     this.tapes = new LocalTapeManager(this.workingDir);
     this.apps = new LocalAppManager(this.workingDir);
     this.home = new LocalHomeManager(this.workingDir);
-
-    // Shared handlers (work for both scopes)
-    this.records = new RecordManager(context);
   }
 
   getWorkingDir(): string {
@@ -40,7 +32,7 @@ export class LocalTapeManager {
   constructor(private workingDir: string) {}
 
   list(): string[] {
-    // TODO: Implement local tape listing
+    // Note: Local tape listing is a stub - not yet implemented
     return [];
   }
 

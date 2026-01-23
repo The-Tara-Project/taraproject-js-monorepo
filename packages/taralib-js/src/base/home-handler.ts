@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import type { SettingsHandler } from './settings';
+import type { SettingsHandler } from './settings-handler';
 
 const TARA_HOME_DIR = '.taraproject';
 const TAPES_DIR = 'tapes';

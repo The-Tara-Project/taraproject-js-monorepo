@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { TaraRecord, isValidUuid4 } from '../src';
+import { RecordHandler } from '../src';
+import { isValidUuid4 } from '../src/base/utils';
 
 describe('record', () => {
 
-    describe('TaraRecord', () => {
+    describe('RecordHandler', () => {
         it('creates record with __tara.id', () => {
-            const record = new TaraRecord();
+            const record = new RecordHandler();
             const obj = record.toObject();
             expect(obj.__tara).toBeDefined();
             expect(obj.__tara.id).toBeDefined();
@@ -13,7 +14,7 @@ describe('record', () => {
         });
 
         it('preserves content in record', () => {
-            const record = new TaraRecord({ foo: 'bar', count: 42 });
+            const record = new RecordHandler({ foo: 'bar', count: 42 });
             const obj = record.toObject();
             expect(obj.foo).toBe('bar');
             expect(obj.count).toBe(42);
@@ -21,19 +22,19 @@ describe('record', () => {
         });
 
         it('generates unique ids', () => {
-            const r1 = new TaraRecord();
-            const r2 = new TaraRecord();
+            const r1 = new RecordHandler();
+            const r2 = new RecordHandler();
             expect(r1.getId()).not.toBe(r2.getId());
         });
 
         it('provides access to content', () => {
-            const record = new TaraRecord({ foo: 'bar' });
+            const record = new RecordHandler({ foo: 'bar' });
             const content = record.getContent();
             expect(content.foo).toBe('bar');
         });
 
         it('serializes to JSON', () => {
-            const record = new TaraRecord({ foo: 'bar' });
+            const record = new RecordHandler({ foo: 'bar' });
             const json = record.toString();
             const parsed = JSON.parse(json);
             expect(parsed.foo).toBe('bar');
@@ -46,50 +47,50 @@ describe('record', () => {
                 foo: 'bar',
                 __tara: { id: '550e8400-e29b-41d4-a716-446655440000' }
             };
-            const record = TaraRecord.fromObject(obj);
+            const record = RecordHandler.fromObject(obj);
             expect(record.getId()).toBe('550e8400-e29b-41d4-a716-446655440000');
             expect(record.getContent().foo).toBe('bar');
         });
 
         it('parses from JSON', () => {
             const json = '{"foo":"bar","__tara":{"id":"550e8400-e29b-41d4-a716-446655440000"}}';
-            const record = TaraRecord.fromJSON(json);
+            const record = RecordHandler.fromJSON(json);
             expect(record.getId()).toBe('550e8400-e29b-41d4-a716-446655440000');
             expect(record.getContent().foo).toBe('bar');
         });
 
         it('validates records', () => {
             const valid = { foo: 'bar', __tara: { id: '550e8400-e29b-41d4-a716-446655440000' } };
-            expect(TaraRecord.isValid(valid)).toBe(true);
+            expect(RecordHandler.isValid(valid)).toBe(true);
         });
 
         it('rejects invalid records', () => {
-            expect(TaraRecord.isValid({ foo: 'bar' })).toBe(false);
-            expect(TaraRecord.isValid(null)).toBe(false);
-            expect(TaraRecord.isValid('string')).toBe(false);
-            expect(TaraRecord.isValid({ __tara: { id: 'invalid' } })).toBe(false);
+            expect(RecordHandler.isValid({ foo: 'bar' })).toBe(false);
+            expect(RecordHandler.isValid(null)).toBe(false);
+            expect(RecordHandler.isValid('string')).toBe(false);
+            expect(RecordHandler.isValid({ __tara: { id: 'invalid' } })).toBe(false);
         });
 
         it('throws on invalid ID', () => {
             expect(() => {
-                new TaraRecord({}, 'invalid-id');
+                new RecordHandler({}, 'invalid-id');
             }).toThrow('Invalid record: invalid UUID v4 format for id');
         });
 
         it('throws on fromObject with invalid record', () => {
             expect(() => {
-                TaraRecord.fromObject({ foo: 'bar' });
+                RecordHandler.fromObject({ foo: 'bar' });
             }).toThrow('Invalid record: missing or invalid __tara.id');
         });
 
         it('throws on fromJSON with invalid JSON', () => {
             expect(() => {
-                TaraRecord.fromJSON('invalid json');
+                RecordHandler.fromJSON('invalid json');
             }).toThrow('Failed to parse JSON');
         });
 
         it('caches serialization', () => {
-            const record = new TaraRecord({ foo: 'bar' });
+            const record = new RecordHandler({ foo: 'bar' });
             const str1 = record.toString();
             const str2 = record.toString();
             expect(str1).toBe(str2);

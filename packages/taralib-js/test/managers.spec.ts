@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { TaraStack } from '../src/tara-project';
+import { TaraStack, RecordHandler } from '../src';
 import { setupTestEnv, teardownTestEnv } from './utils';
 
-describe('TapeManager', () => {
+describe('GTapeManager', () => {
   let tara: TaraStack;
 
   beforeEach(() => {
@@ -111,84 +111,39 @@ describe('AppManager', () => {
   });
 });
 
-describe('QuestionManager', () => {
-  let tara: TaraStack;
-
-  beforeEach(() => {
-    setupTestEnv();
-    tara = new TaraStack();
-  });
-
-  afterEach(teardownTestEnv);
-
-  it('should save and load questions', () => {
-    const app = tara.global.apps.create('test-app');
-    const question = {
-      question: 'What is your favorite color?',
-      prompt: 'Choose a color',
-    };
-
-    app.questions.save('color', question);
-
-    const files = app.questions.list();
-    expect(files.length).toBeGreaterThan(0);
-  });
-
-  it('should delete questions', () => {
-    const app = tara.global.apps.create('test-app');
-    const question = {
-      question: 'What is your favorite color?',
-    };
-
-    app.questions.save('color', question);
-    const filesBefore = app.questions.list();
-    expect(filesBefore.length).toBe(1);
-
-    app.questions.delete('color.json');
-    const filesAfter = app.questions.list();
-    expect(filesAfter.length).toBe(0);
-  });
-});
-
-describe('RecordManager', () => {
-  let tara: TaraStack;
-
-  beforeEach(() => {
-    setupTestEnv();
-    tara = new TaraStack();
-  });
-
+describe('RecordHandler', () => {
+  beforeEach(setupTestEnv);
   afterEach(teardownTestEnv);
 
   it('should create records with UUIDs', () => {
-    const record = tara.global.records.create({ foo: 'bar' });
+    const record = new RecordHandler({ foo: 'bar' });
 
     expect(record.getId()).toMatch(/^[0-9a-f-]{36}$/);
     expect(record.getContent().foo).toBe('bar');
   });
 
   it('should parse records from JSON', () => {
-    const original = tara.global.records.create({ test: 123 });
+    const original = new RecordHandler({ test: 123 });
     const json = original.toString();
 
-    const parsed = tara.global.records.fromJSON(json);
+    const parsed = RecordHandler.fromJSON(json);
     expect(parsed.getId()).toBe(original.getId());
     expect(parsed.getContent().test).toBe(123);
   });
 
   it('should validate records', () => {
-    const record = tara.global.records.create({ data: 'test' });
+    const record = new RecordHandler({ data: 'test' });
     const obj = record.toObject();
 
-    expect(tara.global.records.validate(obj)).toBe(true);
-    expect(tara.global.records.validate({ invalid: 'object' })).toBe(false);
+    expect(RecordHandler.isValid(obj)).toBe(true);
+    expect(RecordHandler.isValid({ invalid: 'object' })).toBe(false);
   });
 
   it('should parse records from objects', () => {
-    const original = tara.global.records.create({ value: 42 });
+    const original = new RecordHandler({ value: 42 });
     const obj = original.toObject();
 
-    const parsed = tara.global.records.fromObject(obj);
+    const parsed = RecordHandler.fromObject(obj);
     expect(parsed.getId()).toBe(original.getId());
     expect(parsed.getContent().value).toBe(42);
   });

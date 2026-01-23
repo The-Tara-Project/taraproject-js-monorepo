@@ -1,0 +1,11 @@
+- Cascade Resolution: Settings resolve through hierarchy of alias first, sources later.
+    - first hit wins
+- Priority Order: Default source precedence is ENV > Project > Global (can be overridden per-key)
+- Alias Mapping: Single key can map to multiple source names (e.g., `debug → ['debug', 'DEBUG', 'TARA_DEBUG']`)
+- Immutability: Settings are frozen between `refresh` calls - no live reloading
+- No Type Coercion: ENV values stay as strings; consumers handle conversion
+- Graceful Degradation: Missing files/keys return undefined with warnings logged
+- Transparent Registry: Non-registered keys work automatically without explicit registration
+    - the key is seach on all sources
+- Direct Inspection: the pair `(key, source)` specify the refered settings value
+- State Initialization: Fresh refresh() wipes previous state and reloads all sources

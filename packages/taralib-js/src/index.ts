@@ -11,10 +11,8 @@ export {
 } from './stack/scopes/local-scope';
 
 // Managers (for direct use if needed)
-export { App, AppManager } from './stack/managers/app-manager';
-export { QuestionManager } from './stack/managers/question-manager';
-export { RecordManager } from './stack/managers/record-manager';
-export { TapeManager } from './stack/managers/tape-manager';
+export { AppManager } from './stack/managers/app-manager';
+export { GTapeManager } from './stack/managers/tape-manager';
 
 // ===== Existing exports =====
 
@@ -22,36 +20,27 @@ export { TapeManager } from './stack/managers/tape-manager';
 export type { ITapeMetadata, ITaraRecord, SettingSource, SettingsState, TaraRecordMeta } from './base/types';
 
 
-// Home folder utilities (deprecated - use HomeHandler or TaraStack.global.home instead)
-export { ensureTaraHome, getTapesFolderPath, getTaraHomePath } from './base/home';
+// Home handler (primary way to manage paths - use TaraStack.global.home or SettingsHandler + HomeHandler)
+// See HomeHandler class for path resolution and directory management
 
 // Record utilities
-export { isValidUuid4, TaraRecord } from './base/record';
+export { RecordHandler } from './base/record-handler';
 
 // Tape operations
-export {
-    buildGlobalTapePath, TapeHandler
-} from './base/tape-handler';
+export { GTapeHandler } from './base/tape-handler';
 
 export { TapeFileHandler } from './base/tape-file-handler';
-export { TapeGitHandler } from './base/tape-git-handler';
+export { GTapeGitHandler } from './base/tape-git-handler';
 
 // Settings system
-export { SettingsHandler } from './base/settings';
+export { SettingsHandler } from './base/settings-handler';
 
 // Home handler
 export { HomeHandler } from './base/home-handler';
 
 // Git operations
-export { GitHandler } from './base/git';
+export { GitHandler } from './base/git-handler';
 
 // App handler
-export {
-    ensureAppQuestionsFolder, getAppFolderPath,
-    getAppQuestionsFolderPath, getAppsFolderPath, listQuestionFiles,
-    loadQuestion,
-    loadRandomQuestion,
-    saveQuestion
-} from './base/app-handler';
-export type { TaraQuestion } from './base/app-handler';
+export { AppHandler } from './base/app-handler';
 

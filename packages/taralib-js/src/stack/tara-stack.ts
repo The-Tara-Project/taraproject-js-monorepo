@@ -1,6 +1,6 @@
 import { GlobalScope } from './scopes/global-scope';
 import { LocalScope } from './scopes/local-scope';
-import { SettingsHandler } from '../base/settings';
+import { SettingsHandler } from '../base/settings-handler';
 
 export interface TaraStackOptions {
   debug?: boolean;
@@ -14,11 +14,13 @@ export interface TaraStackOptions {
  *
  * @example
  * ```typescript
+ * import { TaraStack, RecordHandler } from '@jose_pereiro/taralib-js';
+ *
  * const tara = new TaraStack();
  *
  * // Global scope - resources in ~/.taraproject/
  * const globalTape = tara.global.tapes.create('my-journal');
- * const record = tara.global.records.create({ entry: 'Hello World' });
+ * const record = new RecordHandler({ entry: 'Hello World' });
  * globalTape.fileHandler.appendRecord(record);
  *
  * // Local scope - resources in current project (stub for now)
@@ -45,13 +47,19 @@ export class TaraStack {
 
     // Initialize scopes
     this.global = new GlobalScope(this);
-    this.local = new LocalScope(this, options?.workingDir);
+    this.local = new LocalScope(options?.workingDir);
   }
 
   /**
    * Get the version of taralib.
    */
   getVersion(): string {
-    return '0.1.0'; // TODO: Read from package.json
+    // Read from package.json at runtime
+    try {
+      const pkg = require('../../package.json');
+      return pkg.version || '0.0.0';
+    } catch {
+      return '0.0.0';
+    }
   }
 }

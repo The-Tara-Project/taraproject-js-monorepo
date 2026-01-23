@@ -1,11 +1,21 @@
+import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ITaraRecord } from '../src';
 import {
-    TaraRecord,
-    TapeHandler,
-    buildGlobalTapePath
+    HomeHandler,
+    RecordHandler,
+    SettingsHandler,
+    GTapeHandler,
 } from '../src';
 import { setupTestEnv, teardownTestEnv } from './utils';
+
+// Helper function to build tape path (replaces deprecated buildGlobalTapePath)
+function buildTapePath(tapeId: string): string {
+    const settings = new SettingsHandler();
+    settings.refresh();
+    const home = new HomeHandler(settings);
+    return path.join(home.getTapesPath(), `${tapeId}.tara.jsonl`);
+}
 
 describe('integration: create -> store -> read -> check', () => {
 
@@ -23,9 +33,9 @@ describe('integration: create -> store -> read -> check', () => {
 
     it('full workflow: create tape, add record, read back, verify content', async () => {
         // 1. Create a new tape
-        const tape = new TapeHandler(
+        const tape = new GTapeHandler(
             testTapeId,
-            buildGlobalTapePath(testTapeId)
+            buildTapePath(testTapeId)
         );
         tape.fileHandler.instantiate();
         const tapePath = tape.getPath();
@@ -40,7 +50,7 @@ describe('integration: create -> store -> read -> check', () => {
                 tags: ['test', 'integration'],
             },
         };
-        const record = new TaraRecord(testContent);
+        const record = new RecordHandler(testContent);
 
         // 3. Append record to tape
         tape.fileHandler.appendRecord(record);
@@ -70,17 +80,17 @@ describe('integration: create -> store -> read -> check', () => {
     });
 
     it.skip('supports multiple records in sequence', async () => {
-        const tape = new TapeHandler(
+        const tape = new GTapeHandler(
             testTapeId,
-            buildGlobalTapePath(testTapeId)
+            buildTapePath(testTapeId)
         );
         tape.fileHandler.instantiate();
 
         // Add multiple records
         const records = [
-            new TaraRecord({ index: 0, data: 'first' }),
-            new TaraRecord({ index: 1, data: 'second' }),
-            new TaraRecord({ index: 2, data: 'third' }),
+            new RecordHandler({ index: 0, data: 'first' }),
+            new RecordHandler({ index: 1, data: 'second' }),
+            new RecordHandler({ index: 2, data: 'third' }),
         ];
 
         for (const record of records) {

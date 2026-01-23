@@ -19,13 +19,17 @@
 
 ## Map of notes
 
+### Vision & Principles
 - `notes/index/taraproject.vision.md` — The Tara Project vision and general goals
 - `notes/index/taralib-design-principles.md` — General design principles for Tara Library
-- `notes/index/tarason-fullstack.md` — TaraSon Full Stack architecture overview
-- `notes/index/tara-record.spec.md` — Tara Record format specification
-- `notes/index/tara-tape.spec.md` — Tara Tape format specification
-- `notes/index/specs.spec.md` — Spec notes specifications guidelines
+- `notes/index/the.hourglass.principle.md` — Hourglass architecture pattern: Recorders → Tapes → Readers
 
-## Open Questions (keep short)
-- Q1: <question> (owner: <name>, due: <date/none>)
-- Q2: <question> (owner: <name>, due: <date/none>)
+### Architecture & Design
+- `notes/index/Tara.Stack.Ideas.1.md` — TaraStack subsystems and core components (Kernel, StdLib, MCP, CLI)
+- `notes/index/Tara.Stack.Ideas.2.md` — Advanced TaraStack concepts (Extensible metadata, Apps, Services, Context Recorders)
+
+### Invariants & Specifications
+- `notes/index/more.invariants.md` — Core project invariants (Tapes, Records, Apps, Stack)
+- `notes/index/settings.invariants.md` — Settings system invariants (cascade resolution, aliases, source priority)
+- `notes/index/tara.record.invariants.md` — Record invariants (identity, immutability, UUID, metadata)
+- `notes/index/specs.spec.md` — Guidelines for writing specification notes

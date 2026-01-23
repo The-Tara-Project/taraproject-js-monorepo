@@ -1,18 +1,18 @@
 import * as path from 'path';
-import { GitHandler } from './git';
-import { TapeHandler } from './tape-handler';
+import { GitHandler } from './git-handler';
+import { GTapeHandler } from './tape-handler';
 
 /**
- * TapeGitHandler provides tape-specific git operations.
+ * GTapeGitHandler provides tape-specific git operations.
  * It wraps GitHandler and scopes operations to a specific tape file.
  */
-export class TapeGitHandler {
+export class GTapeGitHandler {
     private tapePath: string;
     private repoPath: string;
     private gitHandler: GitHandler;
 
     constructor(
-        private tape: TapeHandler
+        private tape: GTapeHandler
     ) {
         this.tapePath = tape.getPath();
         this.repoPath = path.dirname(this.tapePath);
@@ -61,7 +61,7 @@ export class TapeGitHandler {
         return this.tapePath;
     }
 
-    getTape(): TapeHandler {
+    getTape(): GTapeHandler {
         return this.tape
     }
 

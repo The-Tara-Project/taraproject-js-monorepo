@@ -27,6 +27,7 @@
 
 ## Backward Compatibility
 - Do not maintain backward compatibility unless I explicitly tell you to
+- repeat, DO NOT CREATE BACKWARD COMPATIBILITY LAYERS UNLESS I TELL YOU TO
 - we are boostrapping a the project, breaking changes are expected 
 
 ## Auto commit

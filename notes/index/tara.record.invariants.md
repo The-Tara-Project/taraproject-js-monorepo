@@ -1,0 +1,20 @@
+- Dual Structure: Every record has user content + `__tara` system metadata namespace
+- Separation of Concerns: User content kept separate from metadata, preventing naming conflicts
+- Reserved Namespace: `__tara` is reserved for system use and must not appear in user content
+- Multiple built-in Identities: 
+    - unique id  
+        - UUID v4 in `__tara.id`
+        - required by all records
+            - minimal implementation
+        - auto-generated on creation if not provided
+    - content hash
+        - sha256 of marked string 
+            - to define later
+        - optional
+    - canonical content hash
+        - sha256 of marked string of the canonical representation
+            - to define later
+        - optional
+- Content Immutability: User content provide content on record creation, no workflow exist for updating content after that.
+- Line-Oriented Format: Records serialize to single-line JSON
+    - JSONL compatible
