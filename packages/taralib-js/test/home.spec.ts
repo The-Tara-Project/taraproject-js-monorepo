@@ -62,15 +62,15 @@ describe('HomeManager', () => {
 
     describe('ensure', () => {
         it('creates tapes directory', () => {
-            tara.global.home.ensure();
+            tara.global.home.instantiate();
             const tapesPath = tara.global.home.getTapesPath();
             expect(fs.existsSync(tapesPath)).toBe(true);
             expect(fs.statSync(tapesPath).isDirectory()).toBe(true);
         });
 
         it('succeeds if directories already exist', () => {
-            tara.global.home.ensure();
-            expect(() => tara.global.home.ensure()).not.toThrow();
+            tara.global.home.instantiate();
+            expect(() => tara.global.home.instantiate()).not.toThrow();
         });
     });
 

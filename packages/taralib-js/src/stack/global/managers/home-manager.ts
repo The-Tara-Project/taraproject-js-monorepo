@@ -82,7 +82,7 @@ export class HomeManager {
      *
      * @throws Error if TARA_HOME exists but is not a directory
      */
-    ensure(): void {
+    instantiate(): void {
         const taraHome = this.getPath();
 
         // Validate that taraHome is not a file

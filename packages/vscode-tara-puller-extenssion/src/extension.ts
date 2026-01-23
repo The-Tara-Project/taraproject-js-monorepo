@@ -316,7 +316,7 @@ function initTaraStack(): TaraStack {
         state.tara = new TaraStack({
             writer: APP_NAME
         });
-        state.tara.global.home.ensure();
+        state.tara.global.home.instantiate();
     }
     return state.tara;
 }

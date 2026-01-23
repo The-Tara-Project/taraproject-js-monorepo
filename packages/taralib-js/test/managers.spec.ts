@@ -113,7 +113,7 @@ describe('HomeManager', () => {
         expect(tara.global.home.getTapesPath()).toContain('tapes');
         expect(tara.global.home.getAppsPath()).toContain('apps');
         expect(tara.global.home.getSubPath('custom')).toContain('custom');
-        expect(() => tara.global.home.ensure()).not.toThrow();
+        expect(() => tara.global.home.instantiate()).not.toThrow();
     });
 
     it('respects taraHome option', () => {

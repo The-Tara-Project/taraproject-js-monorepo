@@ -11,7 +11,7 @@ export function activate(context: vscode.ExtensionContext) {
   let tara: TaraStack;
   try {
     tara = new TaraStack();
-    tara.global.home.ensure();
+    tara.global.home.instantiate();
   } catch (error) {
     vscode.window.showErrorMessage(`Failed to initialize Tara home: ${error instanceof Error ? error.message : String(error)}`);
     return;
