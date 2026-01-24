@@ -41,7 +41,8 @@
       "Bash(npx tsc:*)",
       "mcp__ide__getDiagnostics",
       "Bash(git checkout:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(npx tsx examples/git-storage-example.ts)"
     ]
   }
 }

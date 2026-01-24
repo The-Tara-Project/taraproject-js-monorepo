@@ -1,3 +1,13 @@
+## DOING: think about taraprojects
+- a folder with a `taraproject.json` inside
+- we can add a uuid to identify each project
+- we can force to operate only inside a taraproject
+- if the folder is renamed, the uuid remains the same
+
+
+## DOING: think about git-storage links
+- should they include full path or just relative?
+
 ## DONE: Refactor sub-handlers to load dynamically
 - sun-handler will be undefined until first used
 - use getters to load them on demand

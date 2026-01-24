@@ -52,3 +52,7 @@
 
 ## Off-Limits Resources:
 - notes/inbox/**/*.md is for your personal notes, not for me to consult unless you explicitly tell me to
+
+## Code examples
+- if requested, add a new example file at `packages/<package-name>/examples/` related to the implementation task
+- name the example file according to the feature being implemented
