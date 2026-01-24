@@ -25,6 +25,13 @@ export interface ITapeMetaRecord extends ITaraRecord {
 }
 
 
+export interface ReadJSONLCallbackArgs {
+    parsed: any | null;
+    lineNumber: number;
+    line: string;
+}
+export type ReadJSONLCallback = (elm: ReadJSONLCallbackArgs) => void | 'stop';
+
 export interface ReadRecordsCallbackArgs {
     parsed: ITaraRecord;
     lineNumber: number;

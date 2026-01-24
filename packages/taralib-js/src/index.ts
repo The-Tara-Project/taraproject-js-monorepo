@@ -18,7 +18,11 @@ export type {
     ITaraRecord,
     SettingSource,
     SettingsState,
-    ITaraRecordMeta
+    ITaraRecordMeta,
+    ReadJSONLCallback,
+    ReadJSONLCallbackArgs,
+    ReadRecordsCallback,
+    ReadRecordsCallbackArgs
 } from './base/types';
 
 

@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
 import { RecordHandler } from './record-handler';
-import type { ITapeMetaRecord, ITaraRecord, ReadRecordsCallback, ReadRecordsCallbackArgs } from './types';
+import type { ITapeMetaRecord, ITaraRecord, ReadRecordsCallback, ReadRecordsCallbackArgs, ReadJSONLCallback, ReadJSONLCallbackArgs } from './types';
 import { isValidUuid4 } from './utils';
 
 const FORMAT_VERSION = '0.0.1';
@@ -152,10 +152,11 @@ export class GTapeHandler {
     }
 
     /**
-     * Read all records from the tape with a callback.
-     * @param callback - Function called for each record. Return 'stop' to halt iteration.
+     * Read all lines from the tape file as JSON with a callback.
+     * No validation is performed - parsing failures result in parsed=null.
+     * @param callback - Function called for each line. Return 'stop' to halt iteration.
      */
-    async readRecords(callback: ReadRecordsCallback): Promise<void> {
+    async readJSONL(callback: ReadJSONLCallback): Promise<void> {
         const fileStream = fs.createReadStream(this.path, { encoding: 'utf-8' });
         const rl = readline.createInterface({
             input: fileStream,
@@ -167,29 +168,58 @@ export class GTapeHandler {
         for await (const line of rl) {
             lineNumber++;
 
-            if (line.trim().length === 0) {
-                continue;
+            let parsed: any | null = null;
+            try {
+                parsed = JSON.parse(line);
+            } catch {
+                // If parse fails, parsed remains null
             }
 
-            try {
-                const taraRecord = RecordHandler.fromJSON(line);
-                const parsed = taraRecord.toObject() as ITaraRecord;
+            const elm: ReadJSONLCallbackArgs = {
+                parsed,
+                lineNumber,
+                line,
+            };
 
-                const elm: ReadRecordsCallbackArgs = {
-                    parsed,
-                    lineNumber,
-                    line,
-                };
-                const result = callback(elm);
-                if (result === 'stop') {
-                    break;
-                }
-            } catch (error) {
-                throw new Error(`Corrupted record at line ${lineNumber}: ${error instanceof Error ? error.message : String(error)}`);
+            const result = callback(elm);
+            if (result === 'stop') {
+                break;
             }
         }
 
         fileStream.close();
+    }
+
+    /**
+     * Read all records from the tape with a callback.
+     * Validates each record and throws on corrupted data.
+     * @param callback - Function called for each valid record. Return 'stop' to halt iteration.
+     */
+    async readRecords(callback: ReadRecordsCallback): Promise<void> {
+        await this.readJSONL(({ parsed, lineNumber, line }) => {
+            // Skip empty lines
+            if (line.trim().length === 0) {
+                return;
+            }
+
+            // If parsing failed, throw error
+            if (parsed === null) {
+                throw new Error(`Corrupted record at line ${lineNumber}: Invalid JSON`);
+            }
+
+            // Validate as a TaraRecord
+            if (!RecordHandler.isValid(parsed)) {
+                throw new Error(`Corrupted record at line ${lineNumber}: Invalid record structure`);
+            }
+
+            const elm: ReadRecordsCallbackArgs = {
+                parsed: parsed as ITaraRecord,
+                lineNumber,
+                line,
+            };
+
+            return callback(elm);
+        });
     }
 
     /**
