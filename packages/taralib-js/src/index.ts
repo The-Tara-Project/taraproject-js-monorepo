@@ -7,6 +7,7 @@ export { GlobalScope } from './stack/global/global-scope';
 // Managers (for direct use if needed)
 export { AppManager } from './stack/global/managers/app-manager';
 export { GTapeManager } from './stack/global/managers/tape-manager';
+export { GitStorageManager, type TaraGitSTLink } from './stack/global/managers/git-storage-manager';
 
 // ===== Existing exports =====
 
