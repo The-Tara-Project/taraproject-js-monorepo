@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { execSync } from 'child_process';
-import { TaraStack, GTapeHandler, RecordHandler } from '@jose_pereiro/taralib-js';
+import { TaraStack, GTapeHandler, RecordHandler, TaraGitSTLink } from '@jose_pereiro/taralib-js';
 
 const APP_NAME = 'tara-puller';
 const CONFIRM_PREFIX = '...';
@@ -90,6 +90,9 @@ interface PullerState {
     minIntervalMs: number;
     checkIntervalMs: number;
     enabled: boolean;
+    gitStorageEnabled: boolean;
+    gitStorageBackupMode: 'activeOnly' | 'openFiles' | 'pinnedFiles';
+    gitStorageMaxFileSizeKB: number;
 }
 
 interface GitInfo {
@@ -134,6 +137,9 @@ const state: PullerState = {
     minIntervalMs: 60 * 1000,
     checkIntervalMs: 10 * 1000,
     enabled: true,
+    gitStorageEnabled: true,
+    gitStorageBackupMode: 'activeOnly',
+    gitStorageMaxFileSizeKB: 1024,
 };
 
 // Cache git info per repo root to avoid repeated git calls
@@ -306,6 +312,9 @@ function loadSettings(): void {
     state.minIntervalMs = getConfig('minInterval', 60) * 1000;
     state.checkIntervalMs = getConfig('checkInterval', 10) * 1000;
     state.enabled = getConfig('enabled', true);
+    state.gitStorageEnabled = getConfig('gitStorage.enabled', true);
+    state.gitStorageBackupMode = getConfig('gitStorage.backupMode', 'activeOnly');
+    state.gitStorageMaxFileSizeKB = getConfig('gitStorage.maxFileSizeKB', 1024);
 }
 
 /**
@@ -383,9 +392,62 @@ function isEnabled(): boolean {
 }
 
 /**
+ * Backup files to git-storage and return links
+ */
+async function backupFilesToGitStorage(
+    context: PullContext,
+    recordId: string
+): Promise<{ links: TaraGitSTLink[]; commitHash?: string }> {
+    if (!state.gitStorageEnabled) {
+        return { links: [] };
+    }
+
+    const tara = initTaraStack();
+    const maxSizeBytes = state.gitStorageMaxFileSizeKB * 1024;
+
+    // Determine files to backup based on mode
+    let filesToBackup: FileContext[] = [];
+    switch (state.gitStorageBackupMode) {
+        case 'activeOnly':
+            if (context.activeFile) filesToBackup = [context.activeFile];
+            break;
+        case 'openFiles':
+            filesToBackup = context.openFiles;
+            break;
+        case 'pinnedFiles':
+            filesToBackup = context.pinnedFiles;
+            break;
+    }
+
+    // Filter by size and existence
+    const validFiles: string[] = [];
+    for (const file of filesToBackup) {
+        try {
+            const stats = fs.statSync(file.path);
+            if (stats.size <= maxSizeBytes) {
+                validFiles.push(file.path);
+            }
+        } catch { /* skip */ }
+    }
+
+    if (validFiles.length === 0) return { links: [] };
+
+    try {
+        const links = tara.global.gitst.commitBatch(validFiles, {
+            message: `tara-puller: context backup (${validFiles.length} files)`,
+            metadata: { pullerRecordId: recordId, timestamp: context.timestamp }
+        });
+        return { links, commitHash: links[0]?.commitHash };
+    } catch (error) {
+        console.error('Git-storage backup failed:', error);
+        return { links: [] };
+    }
+}
+
+/**
  * Record a pull entry to the tape with full context
  */
-function recordEntry(response: string | null, dismissed: boolean, context: PullContext): void {
+async function recordEntry(response: string | null, dismissed: boolean, context: PullContext): Promise<void> {
     const tape = getTape();
 
     const record = new RecordHandler({
@@ -396,7 +458,30 @@ function recordEntry(response: string | null, dismissed: boolean, context: PullC
         context,
     });
 
+    const recordId = record.getId();
     tape.appendRecord(record);
+
+    // Backup to git-storage (async, fire-and-forget)
+    if (state.gitStorageEnabled && !dismissed) {
+        backupFilesToGitStorage(context, recordId).then(({ links, commitHash }) => {
+            if (links.length > 0) {
+                const storageRecord = new RecordHandler({
+                    type: 'tara-puller/git-storage-refs',
+                    timestamp: new Date().toISOString(),
+                    linkedRecordId: recordId,
+                    commitHash,
+                    files: links.map(link => ({
+                        originalPath: link.originalPath,
+                        storagePath: link.storagePath,
+                        contentHash: link.contentHash,
+                        recordId: link.recordId,
+                    })),
+                });
+                tape.appendRecord(storageRecord);
+                vscode.window.setStatusBarMessage(`Tara: Backed up ${links.length} file(s)`, 3000);
+            }
+        }).catch(console.error);
+    }
 }
 
 /**
@@ -490,14 +575,14 @@ async function showPullDialog(): Promise<boolean> {
     } else if (response === CONFIRM_PREFIX) {
         // User explicitly dismissed by typing just "..."
         clearPendingRetry();
-        recordEntry(null, true, context);
+        await recordEntry(null, true, context);
         vscode.window.setStatusBarMessage('Tara Puller: Dismissed', 3000);
         vscode.window.showInformationMessage('Tara Puller: Question dismissed');
     } else {
         // User submitted content - strip the CONFIRM_PREFIX suffix
         clearPendingRetry();
         const cleanResponse = response.endsWith(CONFIRM_PREFIX) ? response.slice(0, -CONFIRM_PREFIX.length) : response;
-        recordEntry(cleanResponse, false, context);
+        await recordEntry(cleanResponse, false, context);
         vscode.window.setStatusBarMessage('Tara Puller: Recorded', 3000);
     }
 

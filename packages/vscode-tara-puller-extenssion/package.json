@@ -52,6 +52,23 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Enable or disable Tara Puller automatic prompts"
+                },
+                "taraPuller.gitStorage.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable git-storage backup of files when recording pulls"
+                },
+                "taraPuller.gitStorage.backupMode": {
+                    "type": "string",
+                    "enum": ["activeOnly", "openFiles", "pinnedFiles"],
+                    "default": "activeOnly",
+                    "description": "Which files to backup"
+                },
+                "taraPuller.gitStorage.maxFileSizeKB": {
+                    "type": "number",
+                    "default": 1024,
+                    "minimum": 10,
+                    "description": "Maximum file size to backup (in KB)"
                 }
             }
         }
