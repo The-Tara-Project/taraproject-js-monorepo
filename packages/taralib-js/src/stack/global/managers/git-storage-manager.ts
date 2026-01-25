@@ -4,9 +4,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { TaraStack } from '../../tara-stack';
 import { RecordHandler } from '../../../base/record-handler';
+import { YYYYMM_prefix } from '../../../base/utils';
 
 const GIT_STORAGE_DIR = 'git-storage';
-const GIT_STORAGE_TAPE_ID = 'git-storage-commits';
+const GIT_STORAGE_TAPE_BASE = 'git-storage-commits';
 
 export interface TaraGitSTLink {
     repoPath: string;
@@ -39,6 +40,14 @@ export class GitStorageManager {
      */
     getPath(): string {
         return this.context.global.home.getSubPath(GIT_STORAGE_DIR);
+    }
+
+    /**
+     * Get the dynamic tape ID with YYYYMM prefix.
+     * @private
+     */
+    private getTapeIdInternal(): string {
+        return YYYYMM_prefix(GIT_STORAGE_TAPE_BASE);
     }
 
     /**
@@ -81,7 +90,7 @@ export class GitStorageManager {
         }
 
         // Ensure tape exists
-        const tape = this.context.global.tapes.get(GIT_STORAGE_TAPE_ID);
+        const tape = this.context.global.tapes.get(this.getTapeIdInternal());
         tape.instantiate();
     }
 
@@ -108,13 +117,20 @@ export class GitStorageManager {
 
     /**
      * Map file path to storage location.
-     * /Users/foo/file.txt -> Users/foo/file.txt (relative to repo root)
+     * /Users/foo/bar/file.txt -> <sha256-of-dir>/file.txt
      * @private
      */
     private mapPathToStorage(filePath: string): string {
         const absolutePath = path.resolve(filePath);
-        // Remove leading slash
-        return absolutePath.startsWith('/') ? absolutePath.slice(1) : absolutePath;
+        const dirPath = path.dirname(absolutePath);
+        const fileName = path.basename(absolutePath);
+
+        // Hash the directory path
+        const hashSum = crypto.createHash('sha256');
+        hashSum.update(dirPath);
+        const dirHash = hashSum.digest('hex');
+
+        return path.join(dirHash, fileName);
     }
 
     /**
@@ -199,7 +215,7 @@ export class GitStorageManager {
         });
 
         // Append to tape
-        const tape = this.context.global.tapes.get(GIT_STORAGE_TAPE_ID);
+        const tape = this.context.global.tapes.get(this.getTapeIdInternal());
         tape.appendRecord(record);
 
         // Build complete link
@@ -308,7 +324,7 @@ export class GitStorageManager {
         }
 
         // Append all records to tape in batch
-        const tape = this.context.global.tapes.get(GIT_STORAGE_TAPE_ID);
+        const tape = this.context.global.tapes.get(this.getTapeIdInternal());
         tape.appendRecordBatch(records);
 
         return links;
@@ -317,9 +333,9 @@ export class GitStorageManager {
     /**
      * Get tape ID for git-storage commits.
      *
-     * @returns The tape ID used for git-storage records
+     * @returns The tape ID used for git-storage records (includes YYYYMM prefix)
      */
     getTapeId(): string {
-        return GIT_STORAGE_TAPE_ID;
+        return this.getTapeIdInternal();
     }
 }

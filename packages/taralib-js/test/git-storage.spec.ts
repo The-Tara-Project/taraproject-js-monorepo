@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
@@ -70,9 +71,10 @@ describe('GitStorageManager', () => {
     });
 
     describe('getTapeId', () => {
-        it('returns correct tape ID', () => {
+        it('returns tape ID with YYYYMM prefix', () => {
             const tapeId = tara.global.gitst.getTapeId();
-            expect(tapeId).toBe('git-storage-commits');
+            expect(tapeId).toMatch(/^\d{6}-git-storage-commits$/);
+            expect(tapeId.endsWith('-git-storage-commits')).toBe(true);
         });
     });
 
@@ -183,13 +185,15 @@ describe('GitStorageManager', () => {
     });
 
     describe('Path Mapping', () => {
-        it('preserves full directory structure', () => {
+        it('uses hash-based directory structure', () => {
             const link = tara.global.gitst.commit(testFilePath);
 
-            // Remove leading slash and verify structure is preserved
-            const expectedStorage = testFilePath.startsWith('/')
-                ? testFilePath.slice(1)
-                : testFilePath;
+            // Storage path should be <hash>/<filename>
+            const dirPath = path.dirname(testFilePath);
+            const fileName = path.basename(testFilePath);
+            const expectedHash = crypto.createHash('sha256').update(dirPath).digest('hex');
+            const expectedStorage = path.join(expectedHash, fileName);
+
             expect(link.storagePath).toBe(expectedStorage);
         });
 
