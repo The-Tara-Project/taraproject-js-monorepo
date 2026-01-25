@@ -6,6 +6,7 @@ import { TaraStack } from '../../tara-stack';
 const TARA_HOME_DIR = '.taraproject';
 const TAPES_DIR = 'tapes';
 const APPS_DIR = 'apps';
+const DEV_DIR = 'dev';
 
 /**
  * HomeManager manages Tara home directory operations.
@@ -74,6 +75,15 @@ export class HomeManager {
      */
     getAppsPath(): string {
         return this.getSubPath(APPS_DIR);
+    }
+
+    /**
+     * Get dev folder path for experimental/testing purposes.
+     *
+     * @returns Absolute path to the dev folder (~/.taraproject/dev/)
+     */
+    getDevPath(): string {
+        return this.getSubPath(DEV_DIR);
     }
 
     /**

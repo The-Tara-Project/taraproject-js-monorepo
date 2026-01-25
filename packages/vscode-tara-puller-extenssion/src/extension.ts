@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import { execSync } from 'child_process';
 import { TaraStack, GTapeHandler, RecordHandler, TaraGitSTLink } from '@jose_pereiro/taralib-js';
 
@@ -93,6 +94,7 @@ interface PullerState {
     gitStorageEnabled: boolean;
     gitStorageBackupMode: 'activeOnly' | 'openFiles' | 'pinnedFiles';
     gitStorageMaxFileSizeKB: number;
+    testMode: boolean;
 }
 
 interface GitInfo {
@@ -140,6 +142,7 @@ const state: PullerState = {
     gitStorageEnabled: true,
     gitStorageBackupMode: 'activeOnly',
     gitStorageMaxFileSizeKB: 1024,
+    testMode: false,
 };
 
 // Cache git info per repo root to avoid repeated git calls
@@ -315,6 +318,7 @@ function loadSettings(): void {
     state.gitStorageEnabled = getConfig('gitStorage.enabled', true);
     state.gitStorageBackupMode = getConfig('gitStorage.backupMode', 'activeOnly');
     state.gitStorageMaxFileSizeKB = getConfig('gitStorage.maxFileSizeKB', 1024);
+    state.testMode = getConfig('testMode', false);
 }
 
 /**
@@ -322,12 +326,24 @@ function loadSettings(): void {
  */
 function initTaraStack(): TaraStack {
     if (!state.tara) {
+        const taraHome = state.testMode
+            ? path.join(os.homedir(), '.taraproject', 'dev', 'tara-puller-test-stack')
+            : undefined;
         state.tara = new TaraStack({
-            writer: APP_NAME
+            writer: APP_NAME,
+            taraHome
         });
         state.tara.global.home.instantiate();
     }
     return state.tara;
+}
+
+/**
+ * Reinitialize TaraStack (used when test mode changes)
+ */
+function reinitTaraStack(): void {
+    state.tara = null;
+    initTaraStack();
 }
 
 /**
@@ -548,8 +564,12 @@ async function showPullDialog(): Promise<boolean> {
     // Gather context BEFORE showing dialog (captures state at prompt time)
     const context = gatherContext();
 
+    const title = state.testMode
+        ? `${question.question} (testMode ⚠️)`
+        : question.question;
+
     const response = await vscode.window.showInputBox({
-        title: question.question,
+        title,
         prompt: question.prompt ?? 'Enter your response',
         placeHolder: question.placeholder ?? '',
         ignoreFocusOut: false,
@@ -666,7 +686,11 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration((e) => {
             if (e.affectsConfiguration('taraPuller')) {
+                const oldTestMode = state.testMode;
                 loadSettings();
+                if (oldTestMode !== state.testMode) {
+                    reinitTaraStack();
+                }
                 restartChecker();
             }
         })
@@ -686,9 +710,13 @@ export function activate(context: vscode.ExtensionContext): void {
             const timeUntilNext = Math.max(0, state.minIntervalMs - timeSinceLastPrompt);
             const ctx = gatherContext();
 
+            const testModeStatus = state.testMode
+                ? 'ON (~/.taraproject/dev/tara-puller-test-stack/)'
+                : 'OFF (~/.taraproject/)';
             vscode.window.showInformationMessage(
                 `Tara Puller Status:\n` +
                 `• Enabled: ${state.enabled}\n` +
+                `• Test mode: ${testModeStatus}\n` +
                 `• Window focused: ${state.isWindowFocused}\n` +
                 `• Min interval: ${state.minIntervalMs / 1000}s\n` +
                 `• Time until next prompt: ${Math.ceil(timeUntilNext / 1000)}s\n` +
@@ -734,6 +762,18 @@ export function activate(context: vscode.ExtensionContext): void {
             vscode.window.showInformationMessage(
                 `Tara Puller ${newState ? 'enabled' : 'disabled'}`
             );
+        })
+    );
+
+    // Register command to toggle test mode
+    context.subscriptions.push(
+        vscode.commands.registerCommand('taraPuller.toggleTestMode', async () => {
+            const newState = !state.testMode;
+            await setConfig('testMode', newState);
+            const modePath = newState
+                ? '~/.taraproject/dev/tara-puller-test-stack/'
+                : '~/.taraproject/';
+            vscode.window.showInformationMessage(`Tara Puller: Now using ${modePath}`);
         })
     );
 

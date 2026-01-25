@@ -31,6 +31,10 @@
             {
                 "command": "taraPuller.toggleEnabled",
                 "title": "Tara Puller: Toggle Enabled/Disabled"
+            },
+            {
+                "command": "taraPuller.toggleTestMode",
+                "title": "Tara Puller: Toggle Test Mode"
             }
         ],
         "configuration": {
@@ -69,6 +73,11 @@
                     "default": 1024,
                     "minimum": 10,
                     "description": "Maximum file size to backup (in KB)"
+                },
+                "taraPuller.testMode": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "When enabled, uses ~/.taraproject/dev/tara-puller-test-stack/ for testing"
                 }
             }
         }
