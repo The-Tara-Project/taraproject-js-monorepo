@@ -95,6 +95,7 @@ interface PullerState {
     gitStorageBackupMode: 'activeOnly' | 'openFiles' | 'pinnedFiles';
     gitStorageMaxFileSizeKB: number;
     testMode: boolean;
+    isDialogShowing: boolean;
 }
 
 interface GitInfo {
@@ -143,11 +144,27 @@ const state: PullerState = {
     gitStorageBackupMode: 'activeOnly',
     gitStorageMaxFileSizeKB: 1024,
     testMode: false,
+    isDialogShowing: false,
 };
 
 // Cache git info per repo root to avoid repeated git calls
 const gitCache: Map<string, { info: GitInfo; timestamp: number }> = new Map();
 const GIT_CACHE_TTL = 5000; // 5 seconds
+const GIT_CACHE_MAX_SIZE = 50;
+
+/**
+ * Prune git cache if it exceeds max size (simple LRU eviction)
+ */
+function pruneGitCache(): void {
+    if (gitCache.size > GIT_CACHE_MAX_SIZE) {
+        const entries = Array.from(gitCache.entries())
+            .sort((a, b) => a[1].timestamp - b[1].timestamp);
+        const toRemove = entries.slice(0, gitCache.size - GIT_CACHE_MAX_SIZE);
+        for (const [key] of toRemove) {
+            gitCache.delete(key);
+        }
+    }
+}
 
 /**
  * Run a git command in a directory
@@ -202,6 +219,7 @@ function getGitInfo(filePath: string): GitInfo {
 
     // Cache the result
     gitCache.set(repoRoot, { info, timestamp: Date.now() });
+    pruneGitCache();
 
     return info;
 }
@@ -319,6 +337,18 @@ function loadSettings(): void {
     state.gitStorageBackupMode = getConfig('gitStorage.backupMode', 'activeOnly');
     state.gitStorageMaxFileSizeKB = getConfig('gitStorage.maxFileSizeKB', 1024);
     state.testMode = getConfig('testMode', false);
+
+    // Configuration validation
+    if (state.checkIntervalMs >= state.minIntervalMs) {
+        vscode.window.showWarningMessage(
+            `Tara Puller: checkInterval (${state.checkIntervalMs / 1000}s) should be less than minInterval (${state.minIntervalMs / 1000}s)`
+        );
+    }
+    if (state.minIntervalMs < 10000) {
+        vscode.window.showWarningMessage(
+            'Tara Puller: minInterval should be at least 10 seconds'
+        );
+    }
 }
 
 /**
@@ -543,70 +573,80 @@ function scheduleRetry(): void {
 
 /**
  * Show the pull dialog with a question loaded from files
- * Returns true if dialog was shown, false if skipped due to loading failure
+ * Returns true if dialog was shown, false if skipped due to loading failure or lock
  */
 async function showPullDialog(): Promise<boolean> {
-    // Clear any pending retry since we're showing a dialog now
-    clearPendingRetry();
-
-    // Load question from file
-    const question = loadQuestionForDialog();
-
-    // If loading fails and no fallback configured, skip this iteration
-    if (!question) {
-        vscode.window.setStatusBarMessage('Tara Puller: No questions configured, skipping', 3000);
+    // Prevent multiple dialogs from overlapping (race condition fix)
+    if (state.isDialogShowing) {
         return false;
     }
+    state.isDialogShowing = true;
 
-    // Update last prompt time only when we actually show the dialog
-    state.lastPromptTime = Date.now();
+    try {
+        // Clear any pending retry since we're showing a dialog now
+        clearPendingRetry();
 
-    // Gather context BEFORE showing dialog (captures state at prompt time)
-    const context = gatherContext();
+        // Load question from file
+        const question = loadQuestionForDialog();
 
-    const title = state.testMode
-        ? `${question.question} (testMode ⚠️)`
-        : question.question;
-
-    const response = await vscode.window.showInputBox({
-        title,
-        prompt: question.prompt ?? 'Enter your response',
-        placeHolder: question.placeholder ?? '',
-        ignoreFocusOut: false,
-        validateInput: (value) => {
-            // Accept only "..." (to dismiss) or text ending with "..." (to submit)
-            if (value === CONFIRM_PREFIX) {
-                return null; // Allow just "..." to explicitly dismiss
-            }
-            if (value.length > 0 && value.endsWith(CONFIRM_PREFIX)) {
-                return null; // Allow content ending with "..."
-            }
-            if (value.length === 0) {
-                return `Type ${CONFIRM_PREFIX} to dismiss, or enter your message ending with ${CONFIRM_PREFIX}`;
-            }
-            return `End your message with ${CONFIRM_PREFIX} to submit, or type just ${CONFIRM_PREFIX} to dismiss`;
+        // If loading fails and no fallback configured, skip this iteration
+        if (!question) {
+            vscode.window.setStatusBarMessage('Tara Puller: No questions configured, skipping', 3000);
+            return false;
         }
-    });
 
-    if (response === undefined || response === '') {
-        // User dismissed via ESC, click-outside, or empty input → Schedule retry
-        vscode.window.setStatusBarMessage('Tara Puller: Retrying in 5s', 3000);
-        scheduleRetry();
-    } else if (response === CONFIRM_PREFIX) {
-        // User explicitly dismissed by typing just "..."
-        clearPendingRetry();
-        await recordEntry(null, true, context);
-        vscode.window.setStatusBarMessage('Tara Puller: Dismissed', 3000);
-        vscode.window.showInformationMessage('Tara Puller: Question dismissed');
-    } else {
-        // User submitted content - strip the CONFIRM_PREFIX suffix
-        clearPendingRetry();
-        const cleanResponse = response.endsWith(CONFIRM_PREFIX) ? response.slice(0, -CONFIRM_PREFIX.length) : response;
-        await recordEntry(cleanResponse, false, context);
-        vscode.window.setStatusBarMessage('Tara Puller: Recorded', 3000);
+        // Update last prompt time only when we actually show the dialog
+        state.lastPromptTime = Date.now();
+
+        // Gather context BEFORE showing dialog (captures state at prompt time)
+        const context = gatherContext();
+
+        const title = state.testMode
+            ? `${question.question} (testMode ⚠️)`
+            : question.question;
+
+        const response = await vscode.window.showInputBox({
+            title,
+            prompt: question.prompt ?? 'Enter your response',
+            placeHolder: question.placeholder ?? '',
+            ignoreFocusOut: false,
+            validateInput: (value: string) => {
+                // Accept only "..." (to dismiss) or text ending with "..." (to submit)
+                if (value === CONFIRM_PREFIX) {
+                    return null; // Allow just "..." to explicitly dismiss
+                }
+                if (value.length > 0 && value.endsWith(CONFIRM_PREFIX)) {
+                    return null; // Allow content ending with "..."
+                }
+                if (value.length === 0) {
+                    return `Type ${CONFIRM_PREFIX} to dismiss, or enter your message ending with ${CONFIRM_PREFIX}`;
+                }
+                return `End your message with ${CONFIRM_PREFIX} to submit, or type just ${CONFIRM_PREFIX} to dismiss`;
+            }
+        });
+
+        if (response === undefined || response === '') {
+            // User dismissed via ESC, click-outside, or empty input → Schedule retry
+            vscode.window.setStatusBarMessage('Tara Puller: Retrying in 5s', 3000);
+            scheduleRetry();
+        } else if (response === CONFIRM_PREFIX) {
+            // User explicitly dismissed by typing just "..."
+            clearPendingRetry();
+            await recordEntry(null, true, context);
+            vscode.window.setStatusBarMessage('Tara Puller: Dismissed', 3000);
+            vscode.window.showInformationMessage('Tara Puller: Question dismissed');
+        } else {
+            // User submitted content - strip the CONFIRM_PREFIX suffix
+            clearPendingRetry();
+            const cleanResponse = response.endsWith(CONFIRM_PREFIX) ? response.slice(0, -CONFIRM_PREFIX.length) : response;
+            await recordEntry(cleanResponse, false, context);
+            vscode.window.setStatusBarMessage('Tara Puller: Recorded', 3000);
+        }
+
+        return true;
+    } finally {
+        state.isDialogShowing = false;
     }
-
-    return true;
 }
 
 /**
@@ -677,14 +717,14 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // Track window focus state
     context.subscriptions.push(
-        vscode.window.onDidChangeWindowState((e) => {
+        vscode.window.onDidChangeWindowState((e: vscode.WindowState) => {
             state.isWindowFocused = e.focused;
         })
     );
 
     // Watch for configuration changes
     context.subscriptions.push(
-        vscode.workspace.onDidChangeConfiguration((e) => {
+        vscode.workspace.onDidChangeConfiguration((e: vscode.ConfigurationChangeEvent) => {
             if (e.affectsConfiguration('taraPuller')) {
                 const oldTestMode = state.testMode;
                 loadSettings();
@@ -693,6 +733,13 @@ export function activate(context: vscode.ExtensionContext): void {
                 }
                 restartChecker();
             }
+        })
+    );
+
+    // Clear git cache when workspace folders change
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeWorkspaceFolders(() => {
+            gitCache.clear();
         })
     );
 
@@ -735,7 +782,7 @@ export function activate(context: vscode.ExtensionContext): void {
                 title: 'Set Pull Frequency',
                 prompt: 'Enter minimum interval between prompts (in seconds)',
                 value: currentInterval.toString(),
-                validateInput: (value) => {
+                validateInput: (value: string) => {
                     const num = parseInt(value, 10);
                     if (isNaN(num) || num < 10) {
                         return 'Please enter a number >= 10';

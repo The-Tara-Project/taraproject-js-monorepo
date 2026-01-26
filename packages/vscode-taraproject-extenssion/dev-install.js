@@ -18,7 +18,7 @@ function main() {
     const vsixName = `${pkg.name}-${pkg.version}.vsix`;
     const vsixPath = path.join(ROOT, "dist", vsixName);
 
-    console.log('=== Tara Reader Dev Install ===\n');
+    console.log('=== Tara Puller Dev Install ===\n');
 
     // 1. Build
     console.log('[1/4] Building...');
@@ -35,6 +35,13 @@ function main() {
     // 3. Package (--no-dependencies since we bundle with esbuild)
     console.log('\n[3/4] Packaging extension...');
     run('npx @vscode/vsce package --allow-missing-repository --no-dependencies');
+
+    // copy to dist
+    if (!fs.existsSync(path.join(ROOT, "dist"))) {
+        fs.mkdirSync(path.join(ROOT, "dist"));
+    }
+    fs.renameSync(path.join(ROOT, vsixName), vsixPath);
+    console.log(`  Packaged: ${vsixPath}`);
 
     // 4. Install
     console.log('\n[4/4] Installing in VS Code...');

@@ -18,3 +18,4 @@
 - Content Immutability: User content provide content on record creation, no workflow exist for updating content after that.
 - Line-Oriented Format: Records serialize to single-line JSON
     - JSONL compatible
+- Writing fails fast with validation; reading is lenient and surfaces errors alongside data. 

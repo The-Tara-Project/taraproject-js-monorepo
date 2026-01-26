@@ -1,4 +1,4 @@
-import type { ITaraRecord } from '@jose_pereiro/taralib-js';
+import type { ITapeMetaRecord } from '@jose_pereiro/taralib-js';
 
 export interface TapeInfo {
   tapeId: string;
@@ -7,5 +7,5 @@ export interface TapeInfo {
   recordCount: number;
   fileSize: number;
   lastModified: Date;
-  metadata: ITaraRecord | null;
+  metadata: ITapeMetaRecord | null;
 }

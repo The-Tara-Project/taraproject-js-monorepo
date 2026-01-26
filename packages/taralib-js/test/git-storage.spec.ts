@@ -33,10 +33,10 @@ describe('GitStorageManager', () => {
         it('creates directory and git repo on instantiate', () => {
             tara.global.gitst.instantiate();
 
-            const storagePath = tara.global.gitst.getPath();
-            expect(fs.existsSync(storagePath)).toBe(true);
+            const repoPath = tara.global.gitst.getRepoPath();
+            expect(fs.existsSync(repoPath)).toBe(true);
 
-            const gitDir = path.join(storagePath, '.git');
+            const gitDir = path.join(repoPath, '.git');
             expect(fs.existsSync(gitDir)).toBe(true);
         });
 
@@ -63,10 +63,22 @@ describe('GitStorageManager', () => {
     });
 
     describe('getPath', () => {
-        it('returns correct subdirectory path', () => {
+        it('returns correct base directory path', () => {
             const storagePath = tara.global.gitst.getPath();
             expect(storagePath).toContain('git-storage');
             expect(storagePath).toBe(tara.global.home.getSubPath('git-storage'));
+        });
+    });
+
+    describe('getRepoPath', () => {
+        it('returns default repo path when no repoId specified', () => {
+            const repoPath = tara.global.gitst.getRepoPath();
+            expect(repoPath).toBe(path.join(tara.global.gitst.getPath(), 'default'));
+        });
+
+        it('returns custom repo path when repoId specified', () => {
+            const repoPath = tara.global.gitst.getRepoPath('custom-repo');
+            expect(repoPath).toBe(path.join(tara.global.gitst.getPath(), 'custom-repo'));
         });
     });
 
@@ -83,7 +95,8 @@ describe('GitStorageManager', () => {
             const link = tara.global.gitst.commit(testFilePath);
 
             // Verify link structure
-            expect(link.repoPath).toBe(tara.global.gitst.getPath());
+            expect(link.repoId).toBe('default');
+            expect(link.repoPath).toBe(tara.global.gitst.getRepoPath());
             expect(link.commitHash).toMatch(/^[0-9a-f]{40}$/);
             expect(link.commitHashShort).toMatch(/^[0-9a-f]{7}$/);
             expect(link.originalPath).toBe(testFilePath);
@@ -312,7 +325,7 @@ describe('GitStorageManager', () => {
             tara.global.gitst.commit(file2, { message: 'second commit' });
 
             const gitLog = execSync('git log --oneline', {
-                cwd: tara.global.gitst.getPath(),
+                cwd: tara.global.gitst.getRepoPath(),
                 encoding: 'utf-8'
             });
 
@@ -383,6 +396,70 @@ describe('GitStorageManager', () => {
             const link2 = tara.global.gitst.commit(file2);
 
             expect(link1.contentHash).toBe(link2.contentHash);
+        });
+    });
+
+    describe('Multi-Repo Support', () => {
+        it('commits to default repo when repoId not specified', () => {
+            const link = tara.global.gitst.commit(testFilePath);
+
+            expect(link.repoId).toBe('default');
+            expect(link.repoPath).toContain('default');
+        });
+
+        it('commits to custom repo when repoId specified', () => {
+            const link = tara.global.gitst.commit(testFilePath, { repoId: 'custom-repo' });
+
+            expect(link.repoId).toBe('custom-repo');
+            expect(link.repoPath).toContain('custom-repo');
+
+            // Verify file stored in custom repo
+            const storedFilePath = path.join(link.repoPath, link.storagePath);
+            expect(fs.existsSync(storedFilePath)).toBe(true);
+        });
+
+        it('keeps repos separate', () => {
+            const file1 = path.join(tara.global.home.getPath(), 'file1.txt');
+            const file2 = path.join(tara.global.home.getPath(), 'file2.txt');
+
+            fs.writeFileSync(file1, 'content 1', 'utf-8');
+            fs.writeFileSync(file2, 'content 2', 'utf-8');
+
+            const link1 = tara.global.gitst.commit(file1, { repoId: 'repo-a' });
+            const link2 = tara.global.gitst.commit(file2, { repoId: 'repo-b' });
+
+            // Different repos
+            expect(link1.repoId).toBe('repo-a');
+            expect(link2.repoId).toBe('repo-b');
+            expect(link1.repoPath).not.toBe(link2.repoPath);
+
+            // Each has own git repo
+            expect(fs.existsSync(path.join(link1.repoPath, '.git'))).toBe(true);
+            expect(fs.existsSync(path.join(link2.repoPath, '.git'))).toBe(true);
+        });
+
+        it('batch commits to specified repo', () => {
+            const file1 = path.join(tara.global.home.getPath(), 'batch1.txt');
+            const file2 = path.join(tara.global.home.getPath(), 'batch2.txt');
+
+            fs.writeFileSync(file1, 'content 1', 'utf-8');
+            fs.writeFileSync(file2, 'content 2', 'utf-8');
+
+            const links = tara.global.gitst.commitBatch([file1, file2], { repoId: 'batch-repo' });
+
+            expect(links[0].repoId).toBe('batch-repo');
+            expect(links[1].repoId).toBe('batch-repo');
+            expect(links[0].repoPath).toContain('batch-repo');
+        });
+
+        it('exists() checks specific repo', () => {
+            expect(tara.global.gitst.exists()).toBe(false);
+            expect(tara.global.gitst.exists('custom')).toBe(false);
+
+            tara.global.gitst.instantiate('custom');
+
+            expect(tara.global.gitst.exists()).toBe(false); // default still doesn't exist
+            expect(tara.global.gitst.exists('custom')).toBe(true);
         });
     });
 
@@ -477,6 +554,226 @@ describe('GitStorageManager', () => {
             });
 
             expect(foundRecords).toHaveLength(2);
+        });
+    });
+
+    describe('commitFromRepo', () => {
+        let externalRepoPath: string;
+
+        beforeEach(() => {
+            // Create an external git repo for testing
+            externalRepoPath = path.join(tara.global.home.getPath(), 'external-repo');
+            fs.mkdirSync(externalRepoPath, { recursive: true });
+
+            // Initialize git repo
+            execSync('git init', { cwd: externalRepoPath, stdio: 'pipe' });
+
+            // Configure git user for commits
+            execSync('git config user.email "test@test.com"', { cwd: externalRepoPath, stdio: 'pipe' });
+            execSync('git config user.name "Test User"', { cwd: externalRepoPath, stdio: 'pipe' });
+        });
+
+        it('commits all tracked files from external repo', () => {
+            // Create and track files
+            fs.writeFileSync(path.join(externalRepoPath, 'file1.txt'), 'content 1', 'utf-8');
+            fs.writeFileSync(path.join(externalRepoPath, 'file2.txt'), 'content 2', 'utf-8');
+            execSync('git add .', { cwd: externalRepoPath, stdio: 'pipe' });
+            execSync('git commit -m "initial"', { cwd: externalRepoPath, stdio: 'pipe' });
+
+            const links = tara.global.gitst.commitFromRepo(externalRepoPath);
+
+            expect(links).toHaveLength(2);
+            expect(links[0].commitHash).toBe(links[1].commitHash); // Same batch commit
+        });
+
+        it('respects .gitignore of source repo', () => {
+            // Create files
+            fs.writeFileSync(path.join(externalRepoPath, 'tracked.txt'), 'tracked', 'utf-8');
+            fs.writeFileSync(path.join(externalRepoPath, 'ignored.txt'), 'ignored', 'utf-8');
+
+            // Create .gitignore
+            fs.writeFileSync(path.join(externalRepoPath, '.gitignore'), 'ignored.txt\n', 'utf-8');
+
+            // Track files (ignored.txt won't be tracked due to .gitignore)
+            execSync('git add .', { cwd: externalRepoPath, stdio: 'pipe' });
+            execSync('git commit -m "initial"', { cwd: externalRepoPath, stdio: 'pipe' });
+
+            const links = tara.global.gitst.commitFromRepo(externalRepoPath);
+
+            // Should only commit tracked files (tracked.txt and .gitignore)
+            const originalPaths = links.map(l => path.basename(l.originalPath));
+            expect(originalPaths).toContain('tracked.txt');
+            expect(originalPaths).toContain('.gitignore');
+            expect(originalPaths).not.toContain('ignored.txt');
+        });
+
+        it('throws error if path does not exist', () => {
+            const nonExistentPath = path.join(tara.global.home.getPath(), 'nonexistent');
+
+            expect(() => {
+                tara.global.gitst.commitFromRepo(nonExistentPath);
+            }).toThrow('Path does not exist');
+        });
+
+        it('throws error if path is not a git repo', () => {
+            const nonRepoPath = path.join(tara.global.home.getPath(), 'not-a-repo');
+            fs.mkdirSync(nonRepoPath, { recursive: true });
+
+            expect(() => {
+                tara.global.gitst.commitFromRepo(nonRepoPath);
+            }).toThrow('Not a git repository');
+        });
+
+        it('filters files by maxFileSizeBytes when provided', () => {
+            // Create files of different sizes
+            fs.writeFileSync(path.join(externalRepoPath, 'small.txt'), 'small', 'utf-8'); // 5 bytes
+            fs.writeFileSync(path.join(externalRepoPath, 'large.txt'), 'x'.repeat(1000), 'utf-8'); // 1000 bytes
+
+            execSync('git add .', { cwd: externalRepoPath, stdio: 'pipe' });
+            execSync('git commit -m "initial"', { cwd: externalRepoPath, stdio: 'pipe' });
+
+            const links = tara.global.gitst.commitFromRepo(externalRepoPath, {
+                maxFileSizeBytes: 100
+            });
+
+            const originalPaths = links.map(l => path.basename(l.originalPath));
+            expect(originalPaths).toContain('small.txt');
+            expect(originalPaths).not.toContain('large.txt');
+        });
+
+        it('includes sourceRepo in metadata', async () => {
+            fs.writeFileSync(path.join(externalRepoPath, 'file.txt'), 'content', 'utf-8');
+            execSync('git add .', { cwd: externalRepoPath, stdio: 'pipe' });
+            execSync('git commit -m "initial"', { cwd: externalRepoPath, stdio: 'pipe' });
+
+            const links = tara.global.gitst.commitFromRepo(externalRepoPath);
+
+            const tape = tara.global.tapes.get(tara.global.gitst.getTapeId());
+            let foundSourceRepo = false;
+
+            await tape.readRecords(({ parsed }) => {
+                if (parsed.__tararecord?.id === links[0].recordId) {
+                    expect(parsed.metadata?.sourceRepo).toBe(externalRepoPath);
+                    foundSourceRepo = true;
+                    return 'stop';
+                }
+            });
+
+            expect(foundSourceRepo).toBe(true);
+        });
+
+        it('returns empty array for repo with no files', () => {
+            // Empty git repo with just initial commit
+            fs.writeFileSync(path.join(externalRepoPath, 'temp.txt'), 'temp', 'utf-8');
+            execSync('git add .', { cwd: externalRepoPath, stdio: 'pipe' });
+            execSync('git commit -m "initial"', { cwd: externalRepoPath, stdio: 'pipe' });
+
+            // Remove file and commit
+            fs.unlinkSync(path.join(externalRepoPath, 'temp.txt'));
+            execSync('git add .', { cwd: externalRepoPath, stdio: 'pipe' });
+            execSync('git commit -m "remove"', { cwd: externalRepoPath, stdio: 'pipe' });
+
+            const links = tara.global.gitst.commitFromRepo(externalRepoPath);
+
+            expect(links).toHaveLength(0);
+        });
+
+        it('uses custom message when provided', () => {
+            fs.writeFileSync(path.join(externalRepoPath, 'file.txt'), 'content', 'utf-8');
+            execSync('git add .', { cwd: externalRepoPath, stdio: 'pipe' });
+            execSync('git commit -m "initial"', { cwd: externalRepoPath, stdio: 'pipe' });
+
+            const customMessage = 'My custom backup message';
+            const links = tara.global.gitst.commitFromRepo(externalRepoPath, {
+                message: customMessage
+            });
+
+            expect(links[0].message).toBe(customMessage);
+        });
+
+        it('uses default message with repo basename when not provided', () => {
+            fs.writeFileSync(path.join(externalRepoPath, 'file.txt'), 'content', 'utf-8');
+            execSync('git add .', { cwd: externalRepoPath, stdio: 'pipe' });
+            execSync('git commit -m "initial"', { cwd: externalRepoPath, stdio: 'pipe' });
+
+            const links = tara.global.gitst.commitFromRepo(externalRepoPath);
+
+            expect(links[0].message).toBe('gitst: from repo external-repo');
+        });
+
+        it('merges custom metadata with sourceRepo', async () => {
+            fs.writeFileSync(path.join(externalRepoPath, 'file.txt'), 'content', 'utf-8');
+            execSync('git add .', { cwd: externalRepoPath, stdio: 'pipe' });
+            execSync('git commit -m "initial"', { cwd: externalRepoPath, stdio: 'pipe' });
+
+            const links = tara.global.gitst.commitFromRepo(externalRepoPath, {
+                metadata: { customKey: 'customValue' }
+            });
+
+            const tape = tara.global.tapes.get(tara.global.gitst.getTapeId());
+
+            await tape.readRecords(({ parsed }) => {
+                if (parsed.__tararecord?.id === links[0].recordId) {
+                    expect(parsed.metadata?.customKey).toBe('customValue');
+                    expect(parsed.metadata?.sourceRepo).toBe(externalRepoPath);
+                    return 'stop';
+                }
+            });
+        });
+
+        it('commits to specified repoId', () => {
+            fs.writeFileSync(path.join(externalRepoPath, 'file.txt'), 'content', 'utf-8');
+            execSync('git add .', { cwd: externalRepoPath, stdio: 'pipe' });
+            execSync('git commit -m "initial"', { cwd: externalRepoPath, stdio: 'pipe' });
+
+            const links = tara.global.gitst.commitFromRepo(externalRepoPath, {
+                repoId: 'backup-repo'
+            });
+
+            expect(links[0].repoId).toBe('backup-repo');
+            expect(links[0].repoPath).toContain('backup-repo');
+        });
+
+        it('handles nested directories', () => {
+            // Create nested structure
+            fs.mkdirSync(path.join(externalRepoPath, 'src', 'utils'), { recursive: true });
+            fs.writeFileSync(path.join(externalRepoPath, 'src', 'index.ts'), 'export {}', 'utf-8');
+            fs.writeFileSync(path.join(externalRepoPath, 'src', 'utils', 'helper.ts'), 'export {}', 'utf-8');
+
+            execSync('git add .', { cwd: externalRepoPath, stdio: 'pipe' });
+            execSync('git commit -m "initial"', { cwd: externalRepoPath, stdio: 'pipe' });
+
+            const links = tara.global.gitst.commitFromRepo(externalRepoPath);
+
+            expect(links).toHaveLength(2);
+            const originalPaths = links.map(l => l.originalPath);
+            expect(originalPaths.some(p => p.endsWith('index.ts'))).toBe(true);
+            expect(originalPaths.some(p => p.endsWith('helper.ts'))).toBe(true);
+        });
+
+        it('handles typical node project structure', () => {
+            // Create a typical node project structure
+            fs.mkdirSync(path.join(externalRepoPath, 'src'), { recursive: true });
+            fs.mkdirSync(path.join(externalRepoPath, 'node_modules', 'some-package'), { recursive: true });
+
+            fs.writeFileSync(path.join(externalRepoPath, 'package.json'), '{}', 'utf-8');
+            fs.writeFileSync(path.join(externalRepoPath, 'src', 'index.js'), 'console.log("hi")', 'utf-8');
+            fs.writeFileSync(path.join(externalRepoPath, 'node_modules', 'some-package', 'index.js'), 'module.exports = {}', 'utf-8');
+
+            // Create .gitignore that ignores node_modules
+            fs.writeFileSync(path.join(externalRepoPath, '.gitignore'), 'node_modules/\n', 'utf-8');
+
+            execSync('git add .', { cwd: externalRepoPath, stdio: 'pipe' });
+            execSync('git commit -m "initial"', { cwd: externalRepoPath, stdio: 'pipe' });
+
+            const links = tara.global.gitst.commitFromRepo(externalRepoPath);
+
+            const originalPaths = links.map(l => l.originalPath);
+            // Should include tracked files
+            expect(originalPaths.some(p => p.endsWith('package.json'))).toBe(true);
+            expect(originalPaths.some(p => p.endsWith('index.js') && p.includes('src'))).toBe(true);
+            // Should NOT include node_modules
+            expect(originalPaths.some(p => p.includes('node_modules'))).toBe(false);
         });
     });
 });
