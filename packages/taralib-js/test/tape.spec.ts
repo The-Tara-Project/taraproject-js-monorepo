@@ -36,7 +36,7 @@ describe('tape', () => {
             testTape.appendRecord(record1);
             testTape.appendRecord(record2);
 
-            const content = fs.readFileSync(testTape.getPath(), 'utf-8');
+            const content = fs.readFileSync(testTape.getHomePath(), 'utf-8');
             const lines = content.trim().split('\n');
             expect(lines.length).toBe(3);
             testTape.delete();
@@ -72,14 +72,14 @@ describe('tape', () => {
     describe('instantiate', () => {
         it('creates tape file and is idempotent', () => {
             const tape = tara.global.tapes.get(testTapeId);
-            expect(fs.existsSync(tape.getPath())).toBe(false);
+            expect(fs.existsSync(tape.getHomePath())).toBe(false);
 
             tape.instantiate();
-            expect(fs.existsSync(tape.getPath())).toBe(true);
+            expect(fs.existsSync(tape.getHomePath())).toBe(true);
 
-            const firstContent = fs.readFileSync(tape.getPath(), 'utf-8');
+            const firstContent = fs.readFileSync(tape.getHomePath(), 'utf-8');
             tape.instantiate();
-            const secondContent = fs.readFileSync(tape.getPath(), 'utf-8');
+            const secondContent = fs.readFileSync(tape.getHomePath(), 'utf-8');
             expect(firstContent).toBe(secondContent);
         });
     });
@@ -125,7 +125,7 @@ describe('tape', () => {
             const createdTape = tara.global.tapes.get(testTapeId);
             createdTape.instantiate();
             createdTape.appendRecord(new RecordHandler({ data: 'valid' }));
-            fs.appendFileSync(createdTape.getPath(), 'invalid json\n', 'utf-8');
+            fs.appendFileSync(createdTape.getHomePath(), 'invalid json\n', 'utf-8');
 
             await expect(async () => {
                 await createdTape.readRecords(() => { });
@@ -145,7 +145,7 @@ describe('tape', () => {
 
             createdTape.appendRecordBatch(records);
 
-            const content = fs.readFileSync(createdTape.getPath(), 'utf-8');
+            const content = fs.readFileSync(createdTape.getHomePath(), 'utf-8');
             const lines = content.trim().split('\n');
             expect(lines.length).toBe(4);
         });

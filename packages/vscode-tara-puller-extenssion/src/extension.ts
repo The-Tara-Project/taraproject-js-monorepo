@@ -529,21 +529,26 @@ async function recordEntry(
     }
 }
 
+function defaultQuestion(): TaraQuestion {
+    const defaultQuestion: TaraQuestion = {
+        question: 'What are you doing/thinking?',
+        prompt: `Describe your current activity (end with ${CONFIRM_PREFIX} to submit, or type just ${CONFIRM_PREFIX} to dismiss)`,
+        placeholder: `e.g., Working on feature X${CONFIRM_PREFIX}`,
+        pullerName: APP_NAME,
+    };
+    return defaultQuestion
+}
+
 /**
  * Load a question from the questions folder, or return null if loading fails
  */
-function loadQuestionForDialog(): TaraQuestion | null {
+function loadQuestionForDialog(): TaraQuestion {
     try {
         const tara = initTaraStack();
-        return loadRandomQuestion(tara);
+        const question = loadRandomQuestion(tara);
+        return question ?? defaultQuestion()
     } catch {
-        const defaultQuestion: TaraQuestion = {
-            question: 'What are you doing/thinking?',
-            prompt: `Describe your current activity (end with ${CONFIRM_PREFIX} to submit, or type just ${CONFIRM_PREFIX} to dismiss)`,
-            placeholder: `e.g., Working on feature X${CONFIRM_PREFIX}`,
-            pullerName: APP_NAME,
-        };
-        return defaultQuestion
+        return defaultQuestion()
     }
 }
 

@@ -79,7 +79,7 @@ export async function getAllTapes(): Promise<TapeInfo[]> {
 export async function getTape(tapeId: string): Promise<TapeInfo> {
   const taraStack = getTaraStack();
   const tape = taraStack.global.tapes.get(tapeId);
-  const filePath = tape.getPath();
+  const filePath = tape.getHomePath();
 
   if (!fs.existsSync(filePath)) {
     throw new TaraCLIError(

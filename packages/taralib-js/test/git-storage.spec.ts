@@ -15,7 +15,7 @@ describe('GitStorageManager', () => {
         tara = setupTestEnv();
 
         // Ensure home directory exists
-        const testDir = tara.global.home.getPath();
+        const testDir = tara.global.home.getHomePath();
         if (!fs.existsSync(testDir)) {
             fs.mkdirSync(testDir, { recursive: true });
         }
@@ -64,21 +64,21 @@ describe('GitStorageManager', () => {
 
     describe('getPath', () => {
         it('returns correct base directory path', () => {
-            const storagePath = tara.global.gitst.getPath();
+            const storagePath = tara.global.gitst.getHomePath();
             expect(storagePath).toContain('git-storage');
-            expect(storagePath).toBe(tara.global.home.getSubPath('git-storage'));
+            expect(storagePath).toBe(tara.global.home.getHomePath('git-storage'));
         });
     });
 
     describe('getRepoPath', () => {
         it('returns default repo path when no repoId specified', () => {
             const repoPath = tara.global.gitst.getRepoPath();
-            expect(repoPath).toBe(path.join(tara.global.gitst.getPath(), 'default'));
+            expect(repoPath).toBe(path.join(tara.global.gitst.getHomePath(), 'default'));
         });
 
         it('returns custom repo path when repoId specified', () => {
             const repoPath = tara.global.gitst.getRepoPath('custom-repo');
-            expect(repoPath).toBe(path.join(tara.global.gitst.getPath(), 'custom-repo'));
+            expect(repoPath).toBe(path.join(tara.global.gitst.getHomePath(), 'custom-repo'));
         });
     });
 
@@ -175,7 +175,7 @@ describe('GitStorageManager', () => {
         });
 
         it('throws error for non-existent file', () => {
-            const nonExistentPath = path.join(tara.global.home.getPath(), 'nonexistent.txt');
+            const nonExistentPath = path.join(tara.global.home.getHomePath(), 'nonexistent.txt');
 
             expect(() => {
                 tara.global.gitst.commit(nonExistentPath);
@@ -211,7 +211,7 @@ describe('GitStorageManager', () => {
         });
 
         it('handles nested directories', () => {
-            const nestedDir = path.join(tara.global.home.getPath(), 'a', 'b', 'c');
+            const nestedDir = path.join(tara.global.home.getHomePath(), 'a', 'b', 'c');
             fs.mkdirSync(nestedDir, { recursive: true });
 
             const nestedFile = path.join(nestedDir, 'nested.txt');
@@ -228,7 +228,7 @@ describe('GitStorageManager', () => {
 
         it('handles files from different root directories', () => {
             // Create another directory structure
-            const altDir = path.join(tara.global.home.getPath(), 'alt');
+            const altDir = path.join(tara.global.home.getHomePath(), 'alt');
             fs.mkdirSync(altDir, { recursive: true });
 
             const altFile = path.join(altDir, 'alt-file.txt');
@@ -248,8 +248,8 @@ describe('GitStorageManager', () => {
 
     describe('Integration Tests', () => {
         it('handles multiple commits to same directory', () => {
-            const file1 = path.join(tara.global.home.getPath(), 'file1.txt');
-            const file2 = path.join(tara.global.home.getPath(), 'file2.txt');
+            const file1 = path.join(tara.global.home.getHomePath(), 'file1.txt');
+            const file2 = path.join(tara.global.home.getHomePath(), 'file2.txt');
 
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
@@ -266,8 +266,8 @@ describe('GitStorageManager', () => {
         });
 
         it('handles multiple commits from different directories', () => {
-            const dir1 = path.join(tara.global.home.getPath(), 'dir1');
-            const dir2 = path.join(tara.global.home.getPath(), 'dir2');
+            const dir1 = path.join(tara.global.home.getHomePath(), 'dir1');
+            const dir2 = path.join(tara.global.home.getHomePath(), 'dir2');
 
             fs.mkdirSync(dir1, { recursive: true });
             fs.mkdirSync(dir2, { recursive: true });
@@ -287,8 +287,8 @@ describe('GitStorageManager', () => {
         });
 
         it('tape records are queryable', async () => {
-            const file1 = path.join(tara.global.home.getPath(), 'file1.txt');
-            const file2 = path.join(tara.global.home.getPath(), 'file2.txt');
+            const file1 = path.join(tara.global.home.getHomePath(), 'file1.txt');
+            const file2 = path.join(tara.global.home.getHomePath(), 'file2.txt');
 
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
@@ -315,8 +315,8 @@ describe('GitStorageManager', () => {
         });
 
         it('maintains git history across multiple commits', () => {
-            const file1 = path.join(tara.global.home.getPath(), 'file1.txt');
-            const file2 = path.join(tara.global.home.getPath(), 'file2.txt');
+            const file1 = path.join(tara.global.home.getHomePath(), 'file1.txt');
+            const file2 = path.join(tara.global.home.getHomePath(), 'file2.txt');
 
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
@@ -336,7 +336,7 @@ describe('GitStorageManager', () => {
 
     describe('Edge Cases', () => {
         it('handles files with spaces in name', () => {
-            const fileWithSpaces = path.join(tara.global.home.getPath(), 'file with spaces.txt');
+            const fileWithSpaces = path.join(tara.global.home.getHomePath(), 'file with spaces.txt');
             fs.writeFileSync(fileWithSpaces, 'content', 'utf-8');
 
             const link = tara.global.gitst.commit(fileWithSpaces);
@@ -354,7 +354,7 @@ describe('GitStorageManager', () => {
 
         it('handles large files', () => {
             const largeContent = 'x'.repeat(1024 * 1024); // 1MB
-            const largeFile = path.join(tara.global.home.getPath(), 'large.txt');
+            const largeFile = path.join(tara.global.home.getHomePath(), 'large.txt');
             fs.writeFileSync(largeFile, largeContent, 'utf-8');
 
             const link = tara.global.gitst.commit(largeFile);
@@ -373,8 +373,8 @@ describe('GitStorageManager', () => {
         });
 
         it('generates different hashes for different content', () => {
-            const file1 = path.join(tara.global.home.getPath(), 'file1.txt');
-            const file2 = path.join(tara.global.home.getPath(), 'file2.txt');
+            const file1 = path.join(tara.global.home.getHomePath(), 'file1.txt');
+            const file2 = path.join(tara.global.home.getHomePath(), 'file2.txt');
 
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
@@ -386,8 +386,8 @@ describe('GitStorageManager', () => {
         });
 
         it('generates same hash for identical content', () => {
-            const file1 = path.join(tara.global.home.getPath(), 'file1.txt');
-            const file2 = path.join(tara.global.home.getPath(), 'file2.txt');
+            const file1 = path.join(tara.global.home.getHomePath(), 'file1.txt');
+            const file2 = path.join(tara.global.home.getHomePath(), 'file2.txt');
 
             fs.writeFileSync(file1, 'same content', 'utf-8');
             fs.writeFileSync(file2, 'same content', 'utf-8');
@@ -419,8 +419,8 @@ describe('GitStorageManager', () => {
         });
 
         it('keeps repos separate', () => {
-            const file1 = path.join(tara.global.home.getPath(), 'file1.txt');
-            const file2 = path.join(tara.global.home.getPath(), 'file2.txt');
+            const file1 = path.join(tara.global.home.getHomePath(), 'file1.txt');
+            const file2 = path.join(tara.global.home.getHomePath(), 'file2.txt');
 
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
@@ -439,8 +439,8 @@ describe('GitStorageManager', () => {
         });
 
         it('batch commits to specified repo', () => {
-            const file1 = path.join(tara.global.home.getPath(), 'batch1.txt');
-            const file2 = path.join(tara.global.home.getPath(), 'batch2.txt');
+            const file1 = path.join(tara.global.home.getHomePath(), 'batch1.txt');
+            const file2 = path.join(tara.global.home.getHomePath(), 'batch2.txt');
 
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
@@ -465,9 +465,9 @@ describe('GitStorageManager', () => {
 
     describe('Batch Commit', () => {
         it('commits multiple files in single operation', () => {
-            const file1 = path.join(tara.global.home.getPath(), 'batch1.txt');
-            const file2 = path.join(tara.global.home.getPath(), 'batch2.txt');
-            const file3 = path.join(tara.global.home.getPath(), 'batch3.txt');
+            const file1 = path.join(tara.global.home.getHomePath(), 'batch1.txt');
+            const file2 = path.join(tara.global.home.getHomePath(), 'batch2.txt');
+            const file3 = path.join(tara.global.home.getHomePath(), 'batch3.txt');
 
             fs.writeFileSync(file1, 'batch content 1', 'utf-8');
             fs.writeFileSync(file2, 'batch content 2', 'utf-8');
@@ -481,8 +481,8 @@ describe('GitStorageManager', () => {
         });
 
         it('returns individual links with unique content hashes', () => {
-            const file1 = path.join(tara.global.home.getPath(), 'batch1.txt');
-            const file2 = path.join(tara.global.home.getPath(), 'batch2.txt');
+            const file1 = path.join(tara.global.home.getHomePath(), 'batch1.txt');
+            const file2 = path.join(tara.global.home.getHomePath(), 'batch2.txt');
 
             fs.writeFileSync(file1, 'content A', 'utf-8');
             fs.writeFileSync(file2, 'content B', 'utf-8');
@@ -494,8 +494,8 @@ describe('GitStorageManager', () => {
         });
 
         it('accepts custom message and metadata', () => {
-            const file1 = path.join(tara.global.home.getPath(), 'batch1.txt');
-            const file2 = path.join(tara.global.home.getPath(), 'batch2.txt');
+            const file1 = path.join(tara.global.home.getHomePath(), 'batch1.txt');
+            const file2 = path.join(tara.global.home.getHomePath(), 'batch2.txt');
 
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
@@ -516,8 +516,8 @@ describe('GitStorageManager', () => {
         });
 
         it('throws error if any file does not exist', () => {
-            const file1 = path.join(tara.global.home.getPath(), 'exists.txt');
-            const file2 = path.join(tara.global.home.getPath(), 'nonexistent.txt');
+            const file1 = path.join(tara.global.home.getHomePath(), 'exists.txt');
+            const file2 = path.join(tara.global.home.getHomePath(), 'nonexistent.txt');
 
             fs.writeFileSync(file1, 'content', 'utf-8');
 
@@ -533,8 +533,8 @@ describe('GitStorageManager', () => {
         });
 
         it('creates tape records for all files', async () => {
-            const file1 = path.join(tara.global.home.getPath(), 'batch1.txt');
-            const file2 = path.join(tara.global.home.getPath(), 'batch2.txt');
+            const file1 = path.join(tara.global.home.getHomePath(), 'batch1.txt');
+            const file2 = path.join(tara.global.home.getHomePath(), 'batch2.txt');
 
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
@@ -562,7 +562,7 @@ describe('GitStorageManager', () => {
 
         beforeEach(() => {
             // Create an external git repo for testing
-            externalRepoPath = path.join(tara.global.home.getPath(), 'external-repo');
+            externalRepoPath = path.join(tara.global.home.getHomePath(), 'external-repo');
             fs.mkdirSync(externalRepoPath, { recursive: true });
 
             // Initialize git repo
@@ -608,7 +608,7 @@ describe('GitStorageManager', () => {
         });
 
         it('throws error if path does not exist', () => {
-            const nonExistentPath = path.join(tara.global.home.getPath(), 'nonexistent');
+            const nonExistentPath = path.join(tara.global.home.getHomePath(), 'nonexistent');
 
             expect(() => {
                 tara.global.gitst.commitFromRepo(nonExistentPath);
@@ -616,7 +616,7 @@ describe('GitStorageManager', () => {
         });
 
         it('throws error if path is not a git repo', () => {
-            const nonRepoPath = path.join(tara.global.home.getPath(), 'not-a-repo');
+            const nonRepoPath = path.join(tara.global.home.getHomePath(), 'not-a-repo');
             fs.mkdirSync(nonRepoPath, { recursive: true });
 
             expect(() => {

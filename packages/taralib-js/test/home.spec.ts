@@ -22,7 +22,7 @@ describe('HomeManager', () => {
             const customPath = '/tmp/custom-tara';
             process.env.TARA_HOME = customPath;
             const customTara = new TaraStack();
-            const result = customTara.global.home.getPath();
+            const result = customTara.global.home.getHomePath();
             expect(result).toBe(path.resolve(customPath));
         });
 
@@ -30,7 +30,7 @@ describe('HomeManager', () => {
             const savedTaraHome = process.env.TARA_HOME;
             delete process.env.TARA_HOME;
             const freshTara = new TaraStack();
-            const result = freshTara.global.home.getPath();
+            const result = freshTara.global.home.getHomePath();
             expect(result).toBe(HomeManager.defaultPath());
             process.env.TARA_HOME = savedTaraHome;
         });
@@ -40,7 +40,7 @@ describe('HomeManager', () => {
         it('returns tapes subfolder', () => {
             const result = tara.global.home.getTapesPath();
             expect(result).toContain('tapes');
-            expect(result).toBe(path.join(tara.global.home.getPath(), 'tapes'));
+            expect(result).toBe(path.join(tara.global.home.getHomePath(), 'tapes'));
         });
     });
 
@@ -48,15 +48,15 @@ describe('HomeManager', () => {
         it('returns apps subfolder', () => {
             const result = tara.global.home.getAppsPath();
             expect(result).toContain('apps');
-            expect(result).toBe(path.join(tara.global.home.getPath(), 'apps'));
+            expect(result).toBe(path.join(tara.global.home.getHomePath(), 'apps'));
         });
     });
 
-    describe('getSubPath', () => {
+    describe('getHomePath', () => {
         it('returns custom subfolder', () => {
-            const result = tara.global.home.getSubPath('custom');
+            const result = tara.global.home.getHomePath('custom');
             expect(result).toContain('custom');
-            expect(result).toBe(path.join(tara.global.home.getPath(), 'custom'));
+            expect(result).toBe(path.join(tara.global.home.getHomePath(), 'custom'));
         });
     });
 

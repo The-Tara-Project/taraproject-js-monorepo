@@ -17,7 +17,7 @@ const DEV_DIR = 'dev';
  * @example
  * ```typescript
  * const tara = new TaraStack({ taraHome: '/custom/path' });
- * const path = tara.global.home.getPath(); // Uses settings cascade
+ * const path = tara.global.home.getHomePath(); // Uses settings cascade
  * ```
  */
 export class HomeManager {
@@ -38,25 +38,17 @@ export class HomeManager {
      *
      * @returns Absolute path to Tara home directory
      */
-    getPath(): string {
+    getHomePath(...subfolders: string[]): string {
         // Check settings system (includes bootstrap as fallback)
+        let home = null;
         const settingsPath = this.context.settings.getSetting('taraHome');
         if (settingsPath) {
-            return path.resolve(settingsPath as string);
+            home = path.resolve(settingsPath as string);
+        } else {
+            home = HomeManager.defaultPath();
         }
 
-        // Final fallback
-        return HomeManager.defaultPath();
-    }
-
-    /**
-     * Get path to subdirectory in TARA_HOME.
-     *
-     * @param subfolder - The subfolder name
-     * @returns Absolute path to the subfolder
-     */
-    getSubPath(subfolder: string): string {
-        return path.join(this.getPath(), subfolder);
+        return path.join(home, ...subfolders);
     }
 
     /**
@@ -64,8 +56,8 @@ export class HomeManager {
      *
      * @returns Absolute path to the tapes folder
      */
-    getTapesPath(): string {
-        return this.getSubPath(TAPES_DIR);
+    getTapesPath(...subfolders: string[]): string {
+        return this.getHomePath(TAPES_DIR, ...subfolders);
     }
 
     /**
@@ -73,8 +65,8 @@ export class HomeManager {
      *
      * @returns Absolute path to the apps folder
      */
-    getAppsPath(): string {
-        return this.getSubPath(APPS_DIR);
+    getAppsPath(...subfolders: string[]): string {
+        return this.getHomePath(APPS_DIR, ...subfolders);
     }
 
     /**
@@ -82,8 +74,8 @@ export class HomeManager {
      *
      * @returns Absolute path to the dev folder (~/.taraproject/dev/)
      */
-    getDevPath(): string {
-        return this.getSubPath(DEV_DIR);
+    getDevPath(...subfolders: string[]): string {
+        return this.getHomePath(DEV_DIR, ...subfolders);
     }
 
     /**
@@ -93,7 +85,7 @@ export class HomeManager {
      * @throws Error if TARA_HOME exists but is not a directory
      */
     instantiate(): void {
-        const taraHome = this.getPath();
+        const taraHome = this.getHomePath();
 
         // Validate that taraHome is not a file
         if (fs.existsSync(taraHome)) {
@@ -127,6 +119,6 @@ export class HomeManager {
      * Uses bootstrap.taraHome as fallback via settings cascade.
      */
     getConfigFilePath(): string {
-        return this.getSubPath(this.CONFIG_FILE_NAME)
+        return this.getHomePath(this.CONFIG_FILE_NAME)
     }
 }

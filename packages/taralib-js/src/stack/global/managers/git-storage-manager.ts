@@ -2,9 +2,9 @@ import { execSync } from 'child_process';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { TaraStack } from '../../tara-stack';
 import { RecordHandler } from '../../../base/record-handler';
 import { YYYYMM_prefix } from '../../../base/utils';
+import type { TaraStack } from '../../tara-stack';
 
 const GIT_STORAGE_DIR = 'git-storage';
 const GIT_STORAGE_TAPE_BASE = 'git-storage-commits';
@@ -40,8 +40,8 @@ export class GitStorageManager {
      *
      * @returns Absolute path to ~/.taraproject/git-storage
      */
-    getPath(): string {
-        return this.context.global.home.getSubPath(GIT_STORAGE_DIR);
+    getHomePath(): string {
+        return this.context.global.home.getHomePath(GIT_STORAGE_DIR);
     }
 
     /**
@@ -51,7 +51,7 @@ export class GitStorageManager {
      * @returns Absolute path to ~/.taraproject/git-storage/<repoId>
      */
     getRepoPath(repoId?: string): string {
-        return path.join(this.getPath(), repoId || DEFAULT_REPO_ID);
+        return path.join(this.getHomePath(), repoId || DEFAULT_REPO_ID);
     }
 
     /**

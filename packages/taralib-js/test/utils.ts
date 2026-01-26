@@ -22,9 +22,9 @@ export function setupTestEnv(options?: {
         writer: options?.writer || 'test-runner',
         taraHome: options?.taraHome || randomTestDir()
     });
-    console.log(`Test TARA_HOME set to: ${tara.global.home.getPath()}`);
+    console.log(`Test TARA_HOME set to: ${tara.global.home.getHomePath()}`);
 
-    const testDir = tara.global.home.getPath();
+    const testDir = tara.global.home.getHomePath();
     const defaultDir = HomeManager.defaultPath();
     if (testDir === defaultDir) {
         console.error('Refusing to work in default TARA_HOME directory during test setup');
@@ -38,7 +38,7 @@ export function teardownTestEnv(
     tara: TaraStack
 ): void {
 
-    const testDir = tara.global.home.getPath();
+    const testDir = tara.global.home.getHomePath();
     const defaultDir = HomeManager.defaultPath();
     if (testDir === defaultDir) {
         console.error('Refusing to delete default TARA_HOME directory during test teardown');

@@ -49,7 +49,7 @@ async function generateSummary(tapeId: string): Promise<TapeSummary> {
   }
 
   // Get file size
-  const filePath = tape.getPath();
+  const filePath = tape.getHomePath();
   const fileSize = fs.existsSync(filePath) ? fs.statSync(filePath).size : 0;
 
   // Calculate top fields

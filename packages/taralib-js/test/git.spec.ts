@@ -17,7 +17,7 @@ describe('git', () => {
         tara = setupTestEnv();
 
         // setup repo
-        testRepoPath = tara.global.home.getPath();
+        testRepoPath = tara.global.home.getHomePath();
         repo = new GitHandler(testRepoPath);
     });
 

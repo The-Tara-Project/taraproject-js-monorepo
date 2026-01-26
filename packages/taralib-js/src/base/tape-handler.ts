@@ -38,7 +38,7 @@ export class GTapeHandler {
     /**
      * Get the file path for this tape.
      */
-    getPath(): string {
+    getHomePath(): string {
         return this.path;
     }
 

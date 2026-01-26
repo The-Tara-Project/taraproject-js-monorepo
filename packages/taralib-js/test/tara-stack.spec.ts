@@ -36,7 +36,7 @@ describe('TaraStack', () => {
     it('should respect taraHome option', () => {
         const customPath = '/tmp/custom-tara-test';
         const tara = new TaraStack({ taraHome: customPath });
-        expect(tara.global.home.getPath()).toBe(customPath);
+        expect(tara.global.home.getHomePath()).toBe(customPath);
     });
 
     it('should accept custom working directory', () => {

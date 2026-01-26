@@ -28,7 +28,7 @@ async function main() {
 
     // Get a handler for a global tape (creates a new tape if it doesn't exist)
     const tape1 = tara.global.tapes.get('my-first-tape');
-    console.log(`Tape path: ${tape1.getPath()}`);
+    console.log(`Tape path: ${tape1.getHomePath()}`);
 
     // Instantiate the tape (creates the file structure if needed)
     tape1.instantiate();
@@ -140,7 +140,7 @@ async function main() {
             const meta = await tapeHandler.readMetadata();
             console.log(`\nTape: ${tapeId}`);
             console.log(`  Records: ${meta.recordCount}`);
-            console.log(`  Path: ${tapeHandler.getPath()}`);
+            console.log(`  Path: ${tapeHandler.getHomePath()}`);
         }
     }
     console.log();

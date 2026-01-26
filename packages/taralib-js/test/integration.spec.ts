@@ -26,7 +26,7 @@ describe('integration: create -> store -> read -> check', () => {
         // 1. Create a new tape
         const tape = tara.global.tapes.get(testTapeId);
         tape.instantiate();
-        const tapePath = tape.getPath();
+        const tapePath = tape.getHomePath();
         expect(tapePath).toContain(testTapeId);
 
         // 2. Create a record with test content

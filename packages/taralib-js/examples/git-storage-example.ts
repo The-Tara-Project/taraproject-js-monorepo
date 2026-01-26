@@ -63,7 +63,7 @@ async function main() {
     console.log('Example 3: Git storage information');
     console.log('='.repeat(50));
 
-    console.log('Storage path:', tara.global.gitst.getPath());
+    console.log('Storage path:', tara.global.gitst.getHomePath());
     console.log('Tape ID:', tara.global.gitst.getTapeId());
     console.log('Is initialized:', tara.global.gitst.exists());
     console.log();

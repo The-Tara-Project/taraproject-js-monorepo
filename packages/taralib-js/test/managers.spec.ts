@@ -106,19 +106,19 @@ describe('HomeManager', () => {
     });
 
     it('manages home directory paths', () => {
-        const homePath = tara.global.home.getPath();
+        const homePath = tara.global.home.getHomePath();
         expect(typeof homePath).toBe('string');
         expect(homePath.length).toBeGreaterThan(0);
 
         expect(tara.global.home.getTapesPath()).toContain('tapes');
         expect(tara.global.home.getAppsPath()).toContain('apps');
-        expect(tara.global.home.getSubPath('custom')).toContain('custom');
+        expect(tara.global.home.getHomePath('custom')).toContain('custom');
         expect(() => tara.global.home.instantiate()).not.toThrow();
     });
 
     it('respects taraHome option', () => {
         const customPath = '/tmp/custom-tara-test';
         const taraWithCustomHome = new TaraStack({ writer: 'test', taraHome: customPath });
-        expect(taraWithCustomHome.global.home.getPath()).toBe(customPath);
+        expect(taraWithCustomHome.global.home.getHomePath()).toBe(customPath);
     });
 });

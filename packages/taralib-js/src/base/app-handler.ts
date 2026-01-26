@@ -26,7 +26,7 @@ export class AppHandler {
      * Get the app folder path.
      * @returns Absolute path to the app folder
      */
-    getPath(): string {
+    getHomePath(): string {
         return this.appPath;
     }
 
