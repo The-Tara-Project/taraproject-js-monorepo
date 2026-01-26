@@ -21,7 +21,7 @@ interface TaraQuestion {
  */
 function getQuestionsPath(tara: TaraStack): string {
     const appHandler = tara.global.apps.get(APP_NAME);
-    return path.join(appHandler.getPath(), 'questions');
+    return path.join(appHandler.getHomePath(), 'questions');
 }
 
 /**
@@ -76,6 +76,7 @@ function loadRandomQuestion(tara: TaraStack): TaraQuestion | null {
  * Get the current tape ID based on the current date (YYYYMM-tara-puller)
  */
 function currentTapeId(): string {
+    // TODO: use taralib-ts utils.ts YYYYMM_prefix
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -87,7 +88,9 @@ interface PullerState {
     isWindowFocused: boolean;
     intervalId: NodeJS.Timeout | null;
     retryTimeoutId: NodeJS.Timeout | null;
-    tara: TaraStack | null;
+    tara: TaraStack | null; // working tara
+    user_tara: TaraStack | null;
+    dev_tara: TaraStack | null; // tara for dev mode
     minIntervalMs: number;
     checkIntervalMs: number;
     enabled: boolean;
@@ -137,6 +140,8 @@ const state: PullerState = {
     intervalId: null,
     retryTimeoutId: null,
     tara: null,
+    user_tara: null,
+    dev_tara: null,
     minIntervalMs: 60 * 1000,
     checkIntervalMs: 10 * 1000,
     enabled: true,
@@ -275,7 +280,7 @@ function gatherContext(): PullContext {
         pinnedFiles: [],
         workspace: {
             name: vscode.workspace.name,
-            folders: vscode.workspace.workspaceFolders?.map(f => f.uri.fsPath) ?? [],
+            folders: vscode.workspace.workspaceFolders?.map((f: vscode.WorkspaceFolder) => f.uri.fsPath) ?? [],
         },
         timestamp: new Date().toISOString(),
     };
@@ -338,16 +343,22 @@ function loadSettings(): void {
     state.gitStorageMaxFileSizeKB = getConfig('gitStorage.maxFileSizeKB', 1024);
     state.testMode = getConfig('testMode', false);
 
-    // Configuration validation
-    if (state.checkIntervalMs >= state.minIntervalMs) {
-        vscode.window.showWarningMessage(
-            `Tara Puller: checkInterval (${state.checkIntervalMs / 1000}s) should be less than minInterval (${state.minIntervalMs / 1000}s)`
-        );
-    }
+    // Configuration validation and enforcement
     if (state.minIntervalMs < 10000) {
         vscode.window.showWarningMessage(
-            'Tara Puller: minInterval should be at least 10 seconds'
+            `Tara Puller: minInterval (${state.minIntervalMs / 1000}s) is too low, using 10s minimum`
         );
+        state.minIntervalMs = 10000;
+    }
+    if (state.checkIntervalMs >= state.minIntervalMs) {
+        const newCheckInterval = Math.max(1000, Math.floor(state.minIntervalMs / 2));
+        vscode.window.showWarningMessage(
+            `Tara Puller: checkInterval (${state.checkIntervalMs / 1000}s) must be less than minInterval (${state.minIntervalMs / 1000}s), using ${newCheckInterval / 1000}s`
+        );
+        state.checkIntervalMs = newCheckInterval;
+    }
+    if (state.checkIntervalMs < 1000) {
+        state.checkIntervalMs = 1000; // Minimum 1 second check interval
     }
 }
 
@@ -356,13 +367,18 @@ function loadSettings(): void {
  */
 function initTaraStack(): TaraStack {
     if (!state.tara) {
-        const taraHome = state.testMode
-            ? path.join(os.homedir(), '.taraproject', 'dev', 'tara-puller-test-stack')
-            : undefined;
-        state.tara = new TaraStack({
-            writer: APP_NAME,
-            taraHome
+
+        state.user_tara = new TaraStack({
+            writer: APP_NAME
         });
+
+        state.dev_tara = new TaraStack({
+            writer: APP_NAME,
+            taraHome:
+                state.user_tara.global.home.getDevPath('tara-puller-test-stack')
+        });
+
+        state.tara = state.testMode ? state.dev_tara : state.user_tara;
         state.tara.global.home.instantiate();
     }
     return state.tara;
@@ -392,27 +408,6 @@ function getTape(): GTapeHandler {
     }
 
     return tape;
-}
-
-/**
- * Ensure the questions folder exists and has at least one question.
- * Creates the default "What are you doing/thinking?" question if none exist.
- */
-function ensureInitialQuestions(): void {
-    const tara = initTaraStack();
-    ensureQuestionsFolder(tara);
-
-    const existingQuestions = listQuestionFiles(tara);
-    if (existingQuestions.length === 0) {
-        // Create the default question
-        const defaultQuestion: TaraQuestion = {
-            question: 'What are you doing?',
-            prompt: `Describe your current activity (end with ${CONFIRM_PREFIX} to submit, or type just ${CONFIRM_PREFIX} to dismiss)`,
-            placeholder: `e.g., Working on feature X${CONFIRM_PREFIX}`,
-            pullerName: APP_NAME,
-        };
-        saveQuestion(tara, 'what-are-you-doing', defaultQuestion);
-    }
 }
 
 /**
@@ -493,7 +488,11 @@ async function backupFilesToGitStorage(
 /**
  * Record a pull entry to the tape with full context
  */
-async function recordEntry(response: string | null, dismissed: boolean, context: PullContext): Promise<void> {
+async function recordEntry(
+    response: string | null,
+    dismissed: boolean,
+    context: PullContext
+): Promise<void> {
     const tape = getTape();
 
     const record = new RecordHandler({
@@ -538,7 +537,13 @@ function loadQuestionForDialog(): TaraQuestion | null {
         const tara = initTaraStack();
         return loadRandomQuestion(tara);
     } catch {
-        return null;
+        const defaultQuestion: TaraQuestion = {
+            question: 'What are you doing/thinking?',
+            prompt: `Describe your current activity (end with ${CONFIRM_PREFIX} to submit, or type just ${CONFIRM_PREFIX} to dismiss)`,
+            placeholder: `e.g., Working on feature X${CONFIRM_PREFIX}`,
+            pullerName: APP_NAME,
+        };
+        return defaultQuestion
     }
 }
 
@@ -565,7 +570,7 @@ function scheduleRetry(): void {
     // Schedule new retry
     state.retryTimeoutId = setTimeout(() => {
         state.retryTimeoutId = null;
-        if (isEnabled() && isUserActive()) {
+        if (isEnabled() && isUserActive() && !state.isDialogShowing) {
             showPullDialog();
         }
     }, 5000);
@@ -590,7 +595,9 @@ async function showPullDialog(): Promise<boolean> {
         const question = loadQuestionForDialog();
 
         // If loading fails and no fallback configured, skip this iteration
+        // Update lastPromptTime to prevent rapid repeated attempts
         if (!question) {
+            state.lastPromptTime = Date.now();
             vscode.window.setStatusBarMessage('Tara Puller: No questions configured, skipping', 3000);
             return false;
         }
@@ -655,12 +662,18 @@ async function showPullDialog(): Promise<boolean> {
 async function checkAndPrompt(): Promise<void> {
     // Protocol:
     // 0. Check if enabled
-    // 1. Check if user is active
-    // 2. Check if it's time to query
-    // 3. Query
-    // 4. Get data and append to tape
+    // 1. Check if dialog already showing (prevents race conditions)
+    // 2. Check if user is active
+    // 3. Check if it's time to query
+    // 4. Query
+    // 5. Get data and append to tape
 
     if (!isEnabled()) {
+        return;
+    }
+
+    // Skip if dialog is already showing (race condition prevention)
+    if (state.isDialogShowing) {
         return;
     }
 
@@ -703,6 +716,7 @@ function stopChecker(): void {
  */
 function restartChecker(): void {
     stopChecker();
+    clearPendingRetry();
     if (state.enabled) {
         startChecker();
     }
@@ -711,9 +725,6 @@ function restartChecker(): void {
 export function activate(context: vscode.ExtensionContext): void {
     // Load settings
     loadSettings();
-
-    // Ensure questions folder exists with initial question
-    ensureInitialQuestions();
 
     // Track window focus state
     context.subscriptions.push(
