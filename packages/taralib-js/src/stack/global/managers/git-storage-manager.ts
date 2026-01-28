@@ -47,6 +47,12 @@ export class GitStorageManager {
         // Bootstrap pattern: no logic in constructor
     }
 
+    // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
+    // MARK: REPO ASSIGNMENT LOGIC 
+    // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
+
+
+    // MARK: ...deriveKey
     /**
      * Derive the assignment key for a file path.
      * Walks up from dirname(filePath) looking for .git; if found, returns the repo root.
@@ -66,23 +72,7 @@ export class GitStorageManager {
         return path.dirname(absolutePath);
     }
 
-    /**
-     * List existing repo IDs in git-storage home directory.
-     */
-    private listRepoIds(): string[] {
-        const homePath = this.context.global.home.getGitStoragePath();
-        if (!fs.existsSync(homePath)) return [];
-        return fs.readdirSync(homePath).filter(name => {
-            const full = path.join(homePath, name);
-            return fs.statSync(full).isDirectory() && fs.existsSync(this.context.global.home.getGitStoragePath(name, '.git'));
-        });
-    }
-
-    // just itarate the repo folders and get a tape handler
-    private scanTapes(): void {
-        
-    }
-
+    // MARK: ...scanTapesForKey
     /**
      * Scan all existing repo tapes looking for a record with matching assignmentKey.
      * Returns repoId if found, null otherwise.
@@ -112,6 +102,7 @@ export class GitStorageManager {
         return null;
     }
 
+    // MARK: ...assignNewRepo
     /**
      * Assign a new repo using round-robin: pick repo with fewest commits.
      * If all repos >= REPO_COMMIT_CAP, create a new repo-N.
@@ -143,20 +134,7 @@ export class GitStorageManager {
         return minRepo;
     }
 
-    /**
-     * Set a value in the repo cache with LRU eviction.
-     */
-    private cacheSet(key: string, repoId: string): void {
-        if (this.repoCache.size >= REPO_CACHE_MAX) {
-            // Evict oldest (first inserted)
-            const firstKey = this.repoCache.keys().next().value;
-            if (firstKey !== undefined) {
-                this.repoCache.delete(firstKey);
-            }
-        }
-        this.repoCache.set(key, repoId);
-    }
-
+    // MARK: ...resolveRepoId
     /**
      * Resolve a repoId for a file path using auto-assignment.
      */
@@ -180,68 +158,30 @@ export class GitStorageManager {
         return repoId;
     }
 
-
-    /**     
-     * Get git-storage home path.
-     *
-     * @returns Absolute path to ~/.taraproject/git-storage/
-     */
-    getPath(...subfolders: string[]): string {
-        return this.context.global.home.getGitStoragePath(...subfolders);
-    }
-
     /**
-     * Get path for a specific repo.
-     *
-     * @param repoId - Repository identifier
-     * @returns Absolute path to ~/.taraproject/git-storage/<repoId>
-     */
-    getRepoPath(repoId: string): string {
-        return this.getPath(repoId);
-    }
-
-    /**
-     * Get or create a GitHandler for a repo.
+     * Map file path to storage location.
+     * /Users/foo/bar/file.txt -> <sha256-of-dir>/file.txt
      * @private
      */
-    private getGitHandler(repoId: string): GitHandler {
-        let handler = this.gitHandlers.get(repoId);
-        if (!handler) {
-            const repoPath = this.getRepoPath(repoId);
-            handler = new GitHandler(repoPath);
-            this.gitHandlers.set(repoId, handler);
-        }
-        return handler;
+    private mapPathToStorage(filePath: string): string {
+        const absolutePath = path.resolve(filePath);
+        const dirPath = path.dirname(absolutePath);
+        const fileName = path.basename(absolutePath);
+
+        // Hash the directory path
+        const hashSum = crypto.createHash('sha256');
+        hashSum.update(dirPath);
+        const dirHash = hashSum.digest('hex');
+
+        return path.join(dirHash, fileName);
     }
 
-    tapePath(repoId: string): string {
-        return path.join(this.getRepoPath(repoId), TAPE_FILENAME);
-    }
+    // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
+    // MARK: Commit Workflows
+    // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
 
-    /**
-     * Get or create a TapeHandler for a repo.
-     * @private
-     */
-    private getTape(repoId: string): TapeHandler {
-        let tape = this.tapes.get(repoId);
-        if (!tape) {
-            const tapePath = this.tapePath(repoId);
-            const writer = this.context.settings.getSetting('writer');
-            tape = new TapeHandler(repoId, tapePath, { writer });
-            this.tapes.set(repoId, tape);
-        }
-        return tape;
-    }
 
-    /**
-     * Get the commit count for a repo.
-     * @private
-     */
-    private getCommitCount(repoId: string): number {
-        const output = this.getGitHandler(repoId).execCmdSync('rev-list --count HEAD');
-        return parseInt(output, 10);
-    }
-
+    // MARK: ...instantiate
     /**
      * Initialize git-storage system for a specific repo.
      * - Creates repo directory
@@ -270,45 +210,7 @@ export class GitStorageManager {
         }
     }
 
-    /**
-     * Check if a git-storage repo is initialized.
-     *
-     * @param repoId - Repository identifier (defaults to DEFAULT_REPO_ID)
-     * @returns true if git repo exists, false otherwise
-     */
-    exists(repoId: string): boolean {
-        return this.getGitHandler(repoId).exists();
-    }
-
-    /**
-     * Calculate SHA-256 hash of file content.
-     * @private
-     */
-    private calculateFileHash(filePath: string): string {
-        const fileBuffer = fs.readFileSync(filePath);
-        const hashSum = crypto.createHash('sha256');
-        hashSum.update(fileBuffer);
-        return hashSum.digest('hex');
-    }
-
-    /**
-     * Map file path to storage location.
-     * /Users/foo/bar/file.txt -> <sha256-of-dir>/file.txt
-     * @private
-     */
-    private mapPathToStorage(filePath: string): string {
-        const absolutePath = path.resolve(filePath);
-        const dirPath = path.dirname(absolutePath);
-        const fileName = path.basename(absolutePath);
-
-        // Hash the directory path
-        const hashSum = crypto.createHash('sha256');
-        hashSum.update(dirPath);
-        const dirHash = hashSum.digest('hex');
-
-        return path.join(dirHash, fileName);
-    }
-
+    // MARK: ...copyFileToStorage
     /**
      * Copy file to storage location.
      * @private
@@ -329,6 +231,7 @@ export class GitStorageManager {
         return storagePath;
     }
 
+    // MARK: ...commit
     /**
      * Commit a file to git-storage.
      *
@@ -345,6 +248,8 @@ export class GitStorageManager {
         return links[0];
     }
 
+
+    // MARK: ...commitBatch
     /**
      * Commit multiple files to git-storage in a single operation.
      *
@@ -463,6 +368,7 @@ export class GitStorageManager {
         return links;
     }
 
+    // MARK: ...commitFromRepo
     /**
      * Commit all non-ignored files from an external git repository.
      * Uses `git ls-files` to get the list of tracked/non-ignored files.
@@ -536,5 +442,140 @@ export class GitStorageManager {
             },
             repoId: options?.repoId
         });
+    }
+
+
+    // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
+    // MARK: Utils
+    // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
+
+    // MARK: ...cacheSet
+    /**
+     * Set a value in the repo cache with LRU eviction.
+     */
+    private cacheSet(key: string, repoId: string): void {
+        if (this.repoCache.size >= REPO_CACHE_MAX) {
+            // Evict oldest (first inserted)
+            const firstKey = this.repoCache.keys().next().value;
+            if (firstKey !== undefined) {
+                this.repoCache.delete(firstKey);
+            }
+        }
+        this.repoCache.set(key, repoId);
+    }
+
+
+    // MARK: ...calculateFileHash
+    /**
+     * Calculate SHA-256 hash of file content.
+     * @private
+     */
+    private calculateFileHash(filePath: string): string {
+        const fileBuffer = fs.readFileSync(filePath);
+        const hashSum = crypto.createHash('sha256');
+        hashSum.update(fileBuffer);
+        return hashSum.digest('hex');
+    }
+
+    // MARK: ...listRepoIds
+    /**
+     * List existing repo IDs in git-storage home directory.
+     */
+    private listRepoIds(): string[] {
+        const homePath = this.context.global.home.getGitStoragePath();
+        if (!fs.existsSync(homePath)) return [];
+        return fs.readdirSync(homePath).filter(name => {
+            const full = path.join(homePath, name);
+            return fs.statSync(full).isDirectory() && fs.existsSync(this.context.global.home.getGitStoragePath(name, '.git'));
+        });
+    }
+
+    // MARK: ...scanTapes
+    // just itarate the repo folders and get a tape handler
+    private scanTapes(): void {
+
+    }
+
+    // MARK: ...getPath
+    /**     
+     * Get git-storage home path.
+     *
+     * @returns Absolute path to ~/.taraproject/git-storage/
+     */
+    getPath(...subfolders: string[]): string {
+        return this.context.global.home.getGitStoragePath(...subfolders);
+    }
+
+    // MARK: ...getRepoPath
+    /**
+     * Get path for a specific repo.
+     *
+     * @param repoId - Repository identifier
+     * @returns Absolute path to ~/.taraproject/git-storage/<repoId>
+     */
+    getRepoPath(repoId: string): string {
+        return this.getPath(repoId);
+    }
+
+    // MARK: ...getGitHandler
+    /**
+     * Get or create a GitHandler for a repo.
+     * @private
+     */
+    private getGitHandler(repoId: string): GitHandler {
+        let handler = this.gitHandlers.get(repoId);
+        if (!handler) {
+            const repoPath = this.getRepoPath(repoId);
+            handler = new GitHandler(repoPath);
+            this.gitHandlers.set(repoId, handler);
+        }
+        return handler;
+    }
+
+
+    // MARK: ...getCommitCount
+    /**
+     * Get the commit count for a repo.
+     * @private
+     */
+    private getCommitCount(repoId: string): number {
+        const output = this.getGitHandler(repoId).execCmdSync('rev-list --count HEAD');
+        return parseInt(output, 10);
+    }
+
+    // MARK: ...getTape
+    /**
+     * Get or create a TapeHandler for a repo.
+     * @private
+     */
+    private getTape(repoId: string): TapeHandler {
+        let tape = this.tapes.get(repoId);
+        if (!tape) {
+            const tapePath = this.tapePath(repoId);
+            const writer = this.context.settings.getSetting('writer');
+            tape = new TapeHandler(repoId, tapePath, { writer });
+            this.tapes.set(repoId, tape);
+        }
+        return tape;
+    }
+
+    // MARK: ...tapePath
+    /**
+     * Get the path to the internal tape for a repo.
+     * @private
+     */
+    private tapePath(repoId: string): string {
+        return path.join(this.getRepoPath(repoId), TAPE_FILENAME);
+    }
+
+    // MARK: ...exists
+    /**
+     * Check if a git-storage repo is initialized.
+     *
+     * @param repoId - Repository identifier (defaults to DEFAULT_REPO_ID)
+     * @returns true if git repo exists, false otherwise
+     */
+    exists(repoId: string): boolean {
+        return this.getGitHandler(repoId).exists();
     }
 }
