@@ -112,7 +112,6 @@ describe('GitStorageManager', () => {
             expect(link.repoId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
             expect(link.repoPath).toBe(tara.global.gitst.getRepoPath(link.repoId));
             expect(link.commitHash).toMatch(/^[0-9a-f]{40}$/);
-            expect(link.commitHashShort).toMatch(/^[0-9a-f]{7}$/);
             expect(link.commitCount).toBeGreaterThanOrEqual(2); // bootstrap + data
             expect(link.originalPath).toBe(testFilePath);
             expect(link.storagePath).toBeTruthy();

@@ -1,4 +1,11 @@
-## DOING: think Git-Storage System
+## DOING: modify tape metadata record
+- the taralib metadata is in __taratape
+- but we should allow users to add custom metadata at tape level
+- still keeping the __taratape for internal use
+- also, move `type` to __tararecord metadata
+- the first record cargo is user define metadata...
+
+## DONE: think Git-Storage System
 - make Git-Storage a reusable system
 - we can deplay a Git-Storage system on any folder
 - the current git-storage is just an instance

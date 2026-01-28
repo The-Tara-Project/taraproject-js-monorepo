@@ -30,7 +30,6 @@ async function main() {
 
     console.log('Committed file successfully!');
     console.log('Commit hash:', link.commitHash);
-    console.log('Short hash:', link.commitHashShort);
     console.log('Original path:', link.originalPath);
     console.log('Storage path:', link.storagePath);
     console.log('Content hash:', link.contentHash);
@@ -79,7 +78,6 @@ async function main() {
         if (parsed.type === 'taralib/git-storage-commit') {
             recordCount++;
             console.log(`Record ${recordCount}:`);
-            console.log('  Commit hash:', parsed.link.commitHashShort);
             console.log('  Original file:', path.basename(parsed.link.originalPath));
             console.log('  Message:', parsed.link.message);
             if (parsed.metadata) {

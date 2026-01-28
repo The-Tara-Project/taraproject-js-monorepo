@@ -19,7 +19,6 @@ export interface TaraGitSTLink {
     repoId: string;
     repoPath: string;
     commitHash: string;
-    commitHashShort: string; // delete this, redundant...
     commitCount: number;
     originalPath: string;
     storagePath: string;
@@ -78,6 +77,11 @@ export class GitStorageManager {
         });
     }
 
+    // just itarate the repo folders and get a tape handler
+    private scanTapes(): void {
+        
+    }
+
     /**
      * Scan all existing repo tapes looking for a record with matching assignmentKey.
      * Returns repoId if found, null otherwise.
@@ -86,6 +90,9 @@ export class GitStorageManager {
         const repoIds = this.listRepoIds();
         for (const repoId of repoIds) {
             const tapePath = this.tapePath(repoId);
+            // TODO
+            // WTF: here we need to use TaraHandler to read the tape properly
+            // use 
             if (!fs.existsSync(tapePath)) continue;
             const content = fs.readFileSync(tapePath, 'utf-8');
             const lines = content.split('\n');
@@ -427,7 +434,7 @@ export class GitStorageManager {
         const storagePaths: string[] = [];
 
         for (const { absolutePath, storagePath, contentHash } of fileData) {
-            const linkData: Omit<TaraGitSTLink, 'recordId' | 'recordHash' | 'commitHash' | 'commitHashShort' | 'commitCount'> = {
+            const linkData: Omit<TaraGitSTLink, 'recordId' | 'recordHash' | 'commitHash' | 'commitCount'> = {
                 repoId,
                 repoPath: this.getRepoPath(repoId),
                 originalPath: absolutePath,
@@ -452,7 +459,6 @@ export class GitStorageManager {
             links.push({
                 ...linkData,
                 commitHash: '',
-                commitHashShort: '',
                 commitCount: 0,
                 recordId: record.getId(),
                 recordHash: record.__tararecord?.contentHash,
@@ -474,13 +480,11 @@ export class GitStorageManager {
 
         // Get commit info
         const commitHash = this.execGit('rev-parse HEAD', repoId);
-        const commitHashShort = this.execGit('rev-parse --short HEAD', repoId);
         const commitCount = this.getCommitCount(repoId);
 
         // Fill commit info into links
         for (const link of links) {
             link.commitHash = commitHash;
-            link.commitHashShort = commitHashShort;
             link.commitCount = commitCount;
         }
 
