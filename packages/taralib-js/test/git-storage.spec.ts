@@ -4,15 +4,15 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { TaraStack } from '../src';
-import { GTapeHandler } from '../src/base/tape-handler';
+import { TapeHandler } from '../src/base/tape-handler';
 import { setupTestEnv, teardownTestEnv } from './utils';
 
 const TAPE_FILENAME = 'commits.tara.jsonl';
 
 /** Helper: get internal tape from repo path */
-function getInternalTape(repoPath: string): GTapeHandler {
+function getInternalTape(repoPath: string): TapeHandler {
     const tapePath = path.join(repoPath, TAPE_FILENAME);
-    return new GTapeHandler('internal', tapePath);
+    return new TapeHandler('internal', tapePath);
 }
 
 describe('GitStorageManager', () => {

@@ -33,7 +33,7 @@ export type {
 export { RecordHandler } from './base/record-handler';
 
 // Tape operations
-export { GTapeHandler } from './base/tape-handler';
+export { TapeHandler } from './base/tape-handler';
 
 // Settings system
 export { SettingsManager } from './stack/global/managers/settings-manager';

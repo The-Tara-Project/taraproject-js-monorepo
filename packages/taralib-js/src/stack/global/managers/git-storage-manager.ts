@@ -2,8 +2,9 @@ import { execSync } from 'child_process';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { GitHandler } from '../../../base/git-handler';
 import { RecordHandler } from '../../../base/record-handler';
-import { GTapeHandler } from '../../../base/tape-handler';
+import { TapeHandler } from '../../../base/tape-handler';
 import type { TaraStack } from '../../tara-stack';
 
 const TAPE_FILENAME = 'commits.tara.jsonl';
@@ -38,9 +39,9 @@ export interface TaraGitSTLink {
  * Bootstrap pattern: Constructor only stores context, no logic.
  */
 export class GitStorageManager {
-    private tapes: Map<string, GTapeHandler> = new Map();
+    private tapes: Map<string, TapeHandler> = new Map();
     private repoCache: Map<string, string> = new Map();
-    private validatedRepoPaths: Set<string> = new Set();
+    private gitHandlers: Map<string, GitHandler> = new Map();
 
     constructor(private context: TaraStack) {
         // Bootstrap pattern: no logic in constructor
@@ -200,38 +201,17 @@ export class GitStorageManager {
     }
 
     /**
-     * Execute git command in storage repo.
+     * Get or create a GitHandler for a repo.
      * @private
      */
-    private execGit(command: string, repoId: string): string {
-        const repoPath = this.getRepoPath(repoId);
-
-        if (!this.validatedRepoPaths.has(repoPath)) {
-            try {
-                const check = execSync('git rev-parse --is-inside-work-tree', {
-                    cwd: repoPath,
-                    encoding: 'utf-8',
-                    stdio: ['pipe', 'pipe', 'pipe']
-                });
-                if (check.trim() === 'true') {
-                    this.validatedRepoPaths.add(repoPath);
-                }
-            } catch {
-                // Not a git repo yet (e.g. before git init) — skip validation
-            }
+    private getGitHandler(repoId: string): GitHandler {
+        let handler = this.gitHandlers.get(repoId);
+        if (!handler) {
+            const repoPath = this.getRepoPath(repoId);
+            handler = new GitHandler(repoPath);
+            this.gitHandlers.set(repoId, handler);
         }
-
-        try {
-            const result = execSync(`git ${command}`, {
-                cwd: repoPath,
-                encoding: 'utf-8',
-                stdio: ['pipe', 'pipe', 'pipe']
-            });
-            return result.trim();
-        } catch (error: any) {
-            const message = error.stderr ? error.stderr.toString().trim() : error.message;
-            throw new Error(`Git command failed: ${message}`);
-        }
+        return handler;
     }
 
     tapePath(repoId: string): string {
@@ -239,15 +219,15 @@ export class GitStorageManager {
     }
 
     /**
-     * Get or create a GTapeHandler for a repo.
+     * Get or create a TapeHandler for a repo.
      * @private
      */
-    private getTape(repoId: string): GTapeHandler {
+    private getTape(repoId: string): TapeHandler {
         let tape = this.tapes.get(repoId);
         if (!tape) {
             const tapePath = this.tapePath(repoId);
             const writer = this.context.settings.getSetting('writer');
-            tape = new GTapeHandler(repoId, tapePath, { writer });
+            tape = new TapeHandler(repoId, tapePath, { writer });
             this.tapes.set(repoId, tape);
         }
         return tape;
@@ -258,7 +238,7 @@ export class GitStorageManager {
      * @private
      */
     private getCommitCount(repoId: string): number {
-        const output = this.execGit('rev-list --count HEAD', repoId);
+        const output = this.getGitHandler(repoId).execCmdSync('rev-list --count HEAD');
         return parseInt(output, 10);
     }
 
@@ -273,28 +253,20 @@ export class GitStorageManager {
      * @param repoId - Repository identifier (defaults to DEFAULT_REPO_ID)
      */
     instantiate(repoId: string): void {
-        const repoPath = this.getRepoPath(repoId);
+        const handler = this.getGitHandler(repoId);
 
-        // Create repo directory
-        if (!fs.existsSync(repoPath)) {
-            fs.mkdirSync(repoPath, { recursive: true });
-        }
-
-        // Initialize git repo
-        const gitDir = path.join(repoPath, '.git');
-        if (!fs.existsSync(gitDir)) {
-            this.execGit('init', repoId);
-        }
+        // GitHandler handles directory creation + git init (idempotent)
+        handler.instanciate();
 
         // Ensure tape exists
         this.getTape(repoId).instantiate();
 
         // If no commits yet, do an initial commit with the tape
         try {
-            this.execGit('rev-parse HEAD', repoId);
+            handler.execCmdSync('rev-parse HEAD');
         } catch {
-            this.execGit(`add ${TAPE_FILENAME}`, repoId);
-            this.execGit('commit -m "init: bootstrap tape"', repoId);
+            handler.execCmdSync(`add ${TAPE_FILENAME}`);
+            handler.execCmdSync('commit -m "init: bootstrap tape"');
         }
     }
 
@@ -305,8 +277,7 @@ export class GitStorageManager {
      * @returns true if git repo exists, false otherwise
      */
     exists(repoId: string): boolean {
-        const gitDir = path.join(this.getRepoPath(repoId), '.git');
-        return fs.existsSync(gitDir);
+        return this.getGitHandler(repoId).exists();
     }
 
     /**
@@ -470,16 +441,17 @@ export class GitStorageManager {
         tape.appendRecordBatch(records);
 
         // Stage all data files + tape file
+        const handler = this.getGitHandler(repoId);
         const allPaths = [...storagePaths, TAPE_FILENAME];
         for (const p of allPaths) {
-            this.execGit(`add "${p.replace(/"/g, '\\"')}"`, repoId);
+            handler.execCmdSync(`add "${p.replace(/"/g, '\\"')}"`);
         }
 
         // Single commit
-        this.execGit(`commit -m "${commitMessage.replace(/"/g, '\\"')}"`, repoId);
+        handler.execCmdSync(`commit -m "${commitMessage.replace(/"/g, '\\"')}"`);
 
         // Get commit info
-        const commitHash = this.execGit('rev-parse HEAD', repoId);
+        const commitHash = handler.execCmdSync('rev-parse HEAD');
         const commitCount = this.getCommitCount(repoId);
 
         // Fill commit info into links

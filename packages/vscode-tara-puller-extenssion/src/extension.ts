@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { execSync } from 'child_process';
-import { TaraStack, GTapeHandler, RecordHandler, TaraGitSTLink } from '@jose_pereiro/taralib-js';
+import { TaraStack, TapeHandler, RecordHandler, TaraGitSTLink } from '@jose_pereiro/taralib-js';
 
 const APP_NAME = 'tara-puller';
 const CONFIRM_PREFIX = '...';
@@ -395,7 +395,7 @@ function reinitTaraStack(): void {
 /**
  * Get or create tape handler for the current tape ID
  */
-function getTape(): GTapeHandler {
+function getTape(): TapeHandler {
     const tara = initTaraStack();
     const tapeId = currentTapeId();
 

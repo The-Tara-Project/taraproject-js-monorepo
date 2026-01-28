@@ -2,7 +2,7 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { TaraStack } from '../../tara-stack';
-import { GTapeHandler } from '../../../base/tape-handler';
+import { TapeHandler } from '../../../base/tape-handler';
 import { YYYYMM_prefix } from '../../../base/utils';
 
 /**
@@ -94,12 +94,12 @@ export class GTapeManager {
      * Ensures the git repo exists before returning the handler.
      *
      * @param tapeId - The ID of the tape
-     * @returns A new GTapeHandler instance pointing to the current month's tape file
+     * @returns A new TapeHandler instance pointing to the current month's tape file
      */
-    get(tapeId: string): GTapeHandler {
+    get(tapeId: string): TapeHandler {
         this.instantiateRepo(tapeId);
         const writer = this.context.settings.getSetting('writer');
-        return new GTapeHandler(tapeId, this.buildTapePath(tapeId), { writer });
+        return new TapeHandler(tapeId, this.buildTapePath(tapeId), { writer });
     }
 
     /**

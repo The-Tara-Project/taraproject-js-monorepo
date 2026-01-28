@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { TaraStack } from '../src/stack/tara-stack';
 import { setupTestEnv } from './utils';
 
-describe('GTapeHandler - Custom Metadata', () => {
+describe('TapeHandler - Custom Metadata', () => {
     let tara: TaraStack;
     let testTapeId: string;
 

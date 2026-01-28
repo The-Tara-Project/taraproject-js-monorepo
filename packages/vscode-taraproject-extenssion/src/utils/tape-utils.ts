@@ -4,7 +4,7 @@ import {
   TaraStack,
   type ITaraRecord,
   type ITapeMetaRecord,
-  type GTapeHandler,
+  type TapeHandler,
 } from '@jose_pereiro/taralib-js';
 import type { TapeInfo } from '../models/types';
 
@@ -61,7 +61,7 @@ export async function getAllTapes(tara: TaraStack): Promise<TapeInfo[]> {
 /**
  * Count records in a tape (excluding metadata).
  */
-export async function countRecords(tape: GTapeHandler): Promise<number> {
+export async function countRecords(tape: TapeHandler): Promise<number> {
   let count = 0;
 
   await tape.readRecords(({ parsed }) => {

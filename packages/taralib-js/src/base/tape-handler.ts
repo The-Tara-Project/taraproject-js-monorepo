@@ -9,10 +9,10 @@ import { isValidUuid4 } from './utils';
 const FORMAT_VERSION = '0.0.1';
 
 /**
- * GTapeHandler handles all tape operations including file I/O.
+ * TapeHandler handles all tape operations including file I/O.
  * Tapes are append-only JSONL files with metadata and record management.
  */
-export class GTapeHandler {
+export class TapeHandler {
     private tapeId: string;
     private path: string;
     private writer?: string;
@@ -137,7 +137,7 @@ export class GTapeHandler {
     /**
      * Create the tape file if it doesn't exist.
      * This operation is idempotent.
-     * Uses writer from the GTapeHandler instance for tape metadata.
+     * Uses writer from the TapeHandler instance for tape metadata.
      * @param options.metadata - Optional user-defined metadata for the tape (placed at top level of first record)
      */
     instantiate(options?: { metadata?: Record<string, unknown> }): this {
