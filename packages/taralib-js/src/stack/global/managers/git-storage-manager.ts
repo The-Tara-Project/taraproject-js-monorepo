@@ -6,15 +6,9 @@ import { GitHandler } from '../../../base/git-handler';
 import { RecordHandler } from '../../../base/record-handler';
 import { TapeHandler } from '../../../base/tape-handler';
 import type { TaraStack } from '../../tara-stack';
+import { GitStAssignmentManager, type GitStAssignmentLink } from './git-st-assignment-manager';
 
 const TAPE_FILENAME = 'commits.tara.jsonl';
-const REPO_COMMIT_CAP = 1000;
-const REPO_CACHE_MAX = 100;
-
-// ISSUES
-// ## commitBatch() silently assumes all files belong to the same assignmentKey
-// - make the key assignment process per file basis
-// - but keep a single final commit for all files
 
 export interface TaraGitSTLink {
     repoId: string;
@@ -40,122 +34,12 @@ export interface TaraGitSTLink {
  */
 export class GitStorageManager {
     private tapes: Map<string, TapeHandler> = new Map();
-    private repoCache: Map<string, string> = new Map();
     private gitHandlers: Map<string, GitHandler> = new Map();
+    private assignment: GitStAssignmentManager;
 
     constructor(private context: TaraStack) {
-        // Bootstrap pattern: no logic in constructor
-    }
-
-    // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
-    // MARK: REPO ASSIGNMENT LOGIC 
-    // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
-
-
-    // MARK: ...deriveKey
-    /**
-     * Derive the assignment key for a file path.
-     * Walks up from dirname(filePath) looking for .git; if found, returns the repo root.
-     * Otherwise returns dirname(filePath).
-     */
-    private deriveKey(filePath: string): string {
-        const absolutePath = path.resolve(filePath);
-        let dir = path.dirname(absolutePath);
-        while (true) {
-            if (fs.existsSync(path.join(dir, '.git'))) {
-                return dir;
-            }
-            const parent = path.dirname(dir);
-            if (parent === dir) break;
-            dir = parent;
-        }
-        return path.dirname(absolutePath);
-    }
-
-    // MARK: ...scanTapesForKey
-    /**
-     * Scan all existing repo tapes looking for a record with matching assignmentKey.
-     * Returns repoId if found, null otherwise.
-     */
-    private scanTapesForKey(key: string): string | null {
-        const repoIds = this.listRepoIds();
-        for (const repoId of repoIds) {
-            const tapePath = this.tapePath(repoId);
-            // TODO
-            // WTF: here we need to use TaraHandler to read the tape properly
-            // use 
-            if (!fs.existsSync(tapePath)) continue;
-            const content = fs.readFileSync(tapePath, 'utf-8');
-            const lines = content.split('\n');
-            for (const line of lines) {
-                if (!line.trim()) continue;
-                try {
-                    const parsed = JSON.parse(line);
-                    if (parsed?.link?.assignmentKey === key) {
-                        return repoId;
-                    }
-                } catch {
-                    // skip unparseable lines
-                }
-            }
-        }
-        return null;
-    }
-
-    // MARK: ...assignNewRepo
-    /**
-     * Assign a new repo using round-robin: pick repo with fewest commits.
-     * If all repos >= REPO_COMMIT_CAP, create a new repo-N.
-     */
-    private async assignNewRepo(): Promise<string> {
-        const repoIds = this.listRepoIds()
-
-        let minCount = Infinity;
-        let minRepo = '';
-        for (const repoId of repoIds) {
-            const tapePath = path.join(this.getRepoPath(repoId), TAPE_FILENAME);
-
-            let count = 0;
-            if (fs.existsSync(tapePath)) {
-                const tapeHandler = this.getTape(repoId);
-                count = await tapeHandler.countLines();
-            }
-            if (count < minCount) {
-                minCount = count;
-                minRepo = repoId;
-            }
-        }
-
-        if (minCount >= REPO_COMMIT_CAP) {
-            // All full — create next repo-N
-            return crypto.randomUUID().toString();
-        }
-
-        return minRepo;
-    }
-
-    // MARK: ...resolveRepoId
-    /**
-     * Resolve a repoId for a file path using auto-assignment.
-     */
-    private async resolveRepoId(filePath: string): Promise<string> {
-        const key = this.deriveKey(filePath);
-
-        // Check cache
-        const cached = this.repoCache.get(key);
-        if (cached) return cached;
-
-        // Scan tapes
-        const found = this.scanTapesForKey(key);
-        if (found) {
-            this.cacheSet(key, found);
-            return found;
-        }
-
-        // Assign new
-        const repoId = await this.assignNewRepo();
-        this.cacheSet(key, repoId);
-        return repoId;
+        // Bootstrap pattern: minimal initialization
+        this.assignment = new GitStAssignmentManager(context);
     }
 
     /**
@@ -252,6 +136,7 @@ export class GitStorageManager {
     // MARK: ...commitBatch
     /**
      * Commit multiple files to git-storage in a single operation.
+     * Handles files from different directories/repos by creating separate commits per repo.
      *
      * @param filePaths - Array of absolute paths to files
      * @param options - Optional message, metadata, and repoId (applied to all files)
@@ -279,29 +164,66 @@ export class GitStorageManager {
             absolutePaths.push(absolutePath);
         }
 
-        const repoId = options?.repoId || await this.resolveRepoId(absolutePaths[0]);
-        const assignmentKey = options?.repoId ? undefined : this.deriveKey(absolutePaths[0]);
+        // Get repo groups - either explicit repoId or auto-assignment
+        let repoGroups: Map<string, GitStAssignmentLink[]>;
 
+        if (options?.repoId) {
+            // Explicit repoId: all files go to that repo, no assignmentKey
+            const links = absolutePaths.map(filePath => ({
+                repoId: options.repoId!,
+                repoPath: this.getRepoPath(options.repoId!),
+                filePath,
+            }));
+            repoGroups = new Map([[options.repoId, links]]);
+        } else {
+            // Auto-assignment: resolve and group by repo
+            repoGroups = await this.assignment.resolveAssignmentBatch(absolutePaths);
+        }
+
+        // Process each repo group
+        const allLinks: TaraGitSTLink[] = [];
+
+        for (const [repoId, assignments] of repoGroups) {
+            const links = await this.commitToRepo(repoId, assignments, options);
+            allLinks.push(...links);
+        }
+
+        return allLinks;
+    }
+
+    // MARK: ...commitToRepo
+    /**
+     * Commit files to a specific repo.
+     * @private
+     */
+    private async commitToRepo(
+        repoId: string,
+        assignments: GitStAssignmentLink[],
+        options?: {
+            message?: string;
+            metadata?: Record<string, unknown>;
+        }
+    ): Promise<TaraGitSTLink[]> {
         // Ensure initialized
         this.instantiate(repoId);
 
         const timestamp = new Date().toISOString();
         const commitMessage = options?.message ||
-            (filePaths.length === 1
-                ? `gitst: ${path.basename(absolutePaths[0])}`
-                : `gitst: batch commit (${filePaths.length} files)`);
+            (assignments.length === 1
+                ? `gitst: ${path.basename(assignments[0].filePath)}`
+                : `gitst: batch commit (${assignments.length} files)`);
 
         // Process all files
         const fileData: Array<{
-            absolutePath: string;
+            assignment: GitStAssignmentLink;
             storagePath: string;
             contentHash: string;
         }> = [];
 
-        for (const absolutePath of absolutePaths) {
-            const contentHash = this.calculateFileHash(absolutePath);
-            const storagePath = this.copyFileToStorage(absolutePath, repoId);
-            fileData.push({ absolutePath, storagePath, contentHash });
+        for (const assignment of assignments) {
+            const contentHash = this.calculateFileHash(assignment.filePath);
+            const storagePath = this.copyFileToStorage(assignment.filePath, repoId);
+            fileData.push({ assignment, storagePath, contentHash });
         }
 
         // Create links and records for all files
@@ -309,16 +231,16 @@ export class GitStorageManager {
         const records: RecordHandler[] = [];
         const storagePaths: string[] = [];
 
-        for (const { absolutePath, storagePath, contentHash } of fileData) {
+        for (const { assignment, storagePath, contentHash } of fileData) {
             const linkData: Omit<TaraGitSTLink, 'recordId' | 'recordHash' | 'commitHash' | 'commitCount'> = {
                 repoId,
                 repoPath: this.getRepoPath(repoId),
-                originalPath: absolutePath,
+                originalPath: assignment.filePath,
                 storagePath,
                 contentHash,
                 timestamp,
                 message: commitMessage,
-                ...(assignmentKey ? { assignmentKey } : {}),
+                ...(assignment.assignmentKey ? { assignmentKey: assignment.assignmentKey } : {}),
             };
 
             // Create tape record
@@ -449,22 +371,6 @@ export class GitStorageManager {
     // MARK: Utils
     // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
 
-    // MARK: ...cacheSet
-    /**
-     * Set a value in the repo cache with LRU eviction.
-     */
-    private cacheSet(key: string, repoId: string): void {
-        if (this.repoCache.size >= REPO_CACHE_MAX) {
-            // Evict oldest (first inserted)
-            const firstKey = this.repoCache.keys().next().value;
-            if (firstKey !== undefined) {
-                this.repoCache.delete(firstKey);
-            }
-        }
-        this.repoCache.set(key, repoId);
-    }
-
-
     // MARK: ...calculateFileHash
     /**
      * Calculate SHA-256 hash of file content.
@@ -475,25 +381,6 @@ export class GitStorageManager {
         const hashSum = crypto.createHash('sha256');
         hashSum.update(fileBuffer);
         return hashSum.digest('hex');
-    }
-
-    // MARK: ...listRepoIds
-    /**
-     * List existing repo IDs in git-storage home directory.
-     */
-    private listRepoIds(): string[] {
-        const homePath = this.context.global.home.getGitStoragePath();
-        if (!fs.existsSync(homePath)) return [];
-        return fs.readdirSync(homePath).filter(name => {
-            const full = path.join(homePath, name);
-            return fs.statSync(full).isDirectory() && fs.existsSync(this.context.global.home.getGitStoragePath(name, '.git'));
-        });
-    }
-
-    // MARK: ...scanTapes
-    // just itarate the repo folders and get a tape handler
-    private scanTapes(): void {
-
     }
 
     // MARK: ...getPath

@@ -860,7 +860,7 @@ describe('GitStorageManager', () => {
             const link1 = await tara.global.gitst.commit(file1);
 
             // Clear the in-memory cache to force tape scan
-            (tara.global.gitst as any).repoCache.clear();
+            (tara.global.gitst as any).assignment.repoCache.clear();
 
             const file2 = path.join(tara.global.home.getHomePath(), 'cached2.txt');
             fs.writeFileSync(file2, 'data2', 'utf-8');
