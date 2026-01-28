@@ -59,10 +59,6 @@ export class GTapeHandler {
 
         const record = obj as Record<string, unknown>;
 
-        if (record.type !== 'taralib/tape-metadata') {
-            return false;
-        }
-
         // Check __taratape object
         if (typeof record.__taratape !== 'object' || record.__taratape === null) {
             return false;
@@ -100,39 +96,41 @@ export class GTapeHandler {
 
     /**
      * Create tape metadata record.
+     * @param customMetadata - Optional user-defined metadata for the tape (placed at top level)
      */
-    private _builtTapeMetadata(): RecordHandler {
+    private _builtTapeMetadata(customMetadata?: Record<string, unknown>): RecordHandler {
         const writer = this.getWriter();
         if (!writer || typeof writer !== 'string' || writer.trim().length === 0) {
             throw new Error('writer is required and must be a non-empty string');
         }
 
         return new RecordHandler({
-            type: 'taralib/tape-metadata',
+            ...customMetadata,  // user metadata at top level
             __taratape: {
-                id: crypto.randomUUID(), // New: separate UUID for tape
-                name: this.tapeId,       // Maps to tapeId parameter
+                id: crypto.randomUUID(),
+                name: this.tapeId,
                 formatVersion: FORMAT_VERSION,
                 createdAt: new Date().toISOString(),
-                writer
-            },
-            writer
-        });
+                writer,
+                type: 'taralib/tape-metadata'
+            }
+        }, { writer });
     }
 
     /**
      * Bootstrap a new tape file
      * - creates necessary directories
      * - writes initial metadata record
+     * @param customMetadata - Optional user-defined metadata for the tape
      */
-    private _bootstrapTape(): void {
+    private _bootstrapTape(customMetadata?: Record<string, unknown>): void {
         // Ensure parent directory exists
         const dir = path.dirname(this.path);
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
 
-        const meta = this._builtTapeMetadata();
+        const meta = this._builtTapeMetadata(customMetadata);
         fs.writeFileSync(this.path, meta.toString() + '\n', 'utf-8');
     }
 
@@ -140,14 +138,15 @@ export class GTapeHandler {
      * Create the tape file if it doesn't exist.
      * This operation is idempotent.
      * Uses writer from the GTapeHandler instance for tape metadata.
+     * @param options.metadata - Optional user-defined metadata for the tape (placed at top level of first record)
      */
-    instantiate(): this {
+    instantiate(options?: { metadata?: Record<string, unknown> }): this {
         // If file already exists, return early (idempotent)
         if (fs.existsSync(this.path)) {
             return this;
         }
 
-        this._bootstrapTape();
+        this._bootstrapTape(options?.metadata);
         return this;
     }
 

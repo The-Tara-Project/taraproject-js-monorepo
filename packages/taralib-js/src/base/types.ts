@@ -3,6 +3,7 @@ export interface ITaraRecordMeta {
     contentHash?: string; // optional hash of the content for integrity verification
     canonicalHash?: string; // optional canonical hash for deduplication
     writer?: string; // optional identifier for who/what created this record
+    type?: string; // optional record type
 }
 
 export interface ITaraRecord {
@@ -17,11 +18,12 @@ export interface ITaraTapeMeta {
     formatVersion: "0.0.1"; // tape format version
     createdAt: string; // ISO 8601
     writer: string; // required, non-empty
+    type?: string; // optional tape type, e.g. 'taralib/tape-metadata'
 }
 
 export interface ITapeMetaRecord extends ITaraRecord {
-    type: 'taralib/tape-metadata';
     __taratape: ITaraTapeMeta;
+    // Top level is reserved for user custom metadata
 }
 
 

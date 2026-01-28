@@ -25,6 +25,9 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
         if (this.auxmeta.contentHash) {
             meta.contentHash = this.auxmeta.contentHash;
         }
+        if (this.auxmeta.type) {
+            meta.type = this.auxmeta.type;
+        }
         return meta;
     }
 
@@ -39,9 +42,10 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
     ) {
         this.auxmeta = {
             id: options?.id || crypto.randomUUID(),
-            writer: options?.writer, 
+            writer: options?.writer,
             contentHash: options?.contentHash,
-            canonicalHash: options?.canonicalHash
+            canonicalHash: options?.canonicalHash,
+            type: options?.type
         };
 
         // Validate ID if provided
@@ -120,11 +124,12 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
         const meta = obj.__tararecord as Record<string, unknown>;
         const id = meta.id as string;
         const writer = meta?.writer as string | undefined;
+        const type = meta?.type as string | undefined;
 
         // Extract content (everything except __tararecord)
         const { __tararecord, ...content } = obj;
 
-        return new RecordHandler<T>(content as T, { id, writer });
+        return new RecordHandler<T>(content as T, { id, writer, type });
     }
 
     /**
