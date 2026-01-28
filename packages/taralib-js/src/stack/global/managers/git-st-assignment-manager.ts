@@ -48,7 +48,7 @@ export class GitStAssignmentManager {
 
         if (!repoId) {
             // Scan tapes for existing assignment
-            repoId = this.scanTapesForKey(key) ?? undefined;
+            repoId = await this.scanTapesForKey(key) ?? undefined;
 
             if (!repoId) {
                 // Assign new repo
@@ -84,7 +84,7 @@ export class GitStAssignmentManager {
             let repoId = this.cacheGet(key);
 
             if (!repoId) {
-                repoId = this.scanTapesForKey(key) ?? undefined;
+                repoId = await this.scanTapesForKey(key) ?? undefined;
                 if (!repoId) {
                     repoId = await this.assignNewRepo();
                 }
@@ -147,23 +147,24 @@ export class GitStAssignmentManager {
      * Scan all existing repo tapes looking for a record with matching assignmentKey.
      * Returns repoId if found, null otherwise.
      */
-    private scanTapesForKey(key: string): string | null {
+    private async scanTapesForKey(key: string): Promise<string | null> {
         const repoIds = this.listRepoIds();
         for (const repoId of repoIds) {
             const tapePath = this.tapePath(repoId);
             if (!fs.existsSync(tapePath)) continue;
-            const content = fs.readFileSync(tapePath, 'utf-8');
-            const lines = content.split('\n');
-            for (const line of lines) {
-                if (!line.trim()) continue;
-                try {
-                    const parsed = JSON.parse(line);
-                    if (parsed?.link?.assignmentKey === key) {
-                        return repoId;
-                    }
-                } catch {
-                    // skip unparseable lines
+
+            const tape = this.getTape(repoId);
+            let found = false;
+
+            await tape.readJSONL(({ parsed }) => {
+                if (parsed?.link?.assignmentKey === key) {
+                    found = true;
+                    return 'stop';
                 }
+            });
+
+            if (found) {
+                return repoId;
             }
         }
         return null;

@@ -921,7 +921,7 @@ describe('GitStorageManager', () => {
             execSync('git commit -m "seed"', { cwd: repo0Path, stdio: 'pipe' });
 
             // Clear cache so auto-assignment sees repo-0 as full
-            (tara.global.gitst as any).repoCache.clear();
+            ((tara.global.gitst as any).assignment).repoCache.clear();
 
             const dir = path.join(tara.global.home.getHomePath(), 'newdir');
             fs.mkdirSync(dir, { recursive: true });
