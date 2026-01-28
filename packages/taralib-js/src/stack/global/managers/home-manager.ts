@@ -68,6 +68,15 @@ export class HomeManager {
     getAppsPath(...subfolders: string[]): string {
         return this.getHomePath(APPS_DIR, ...subfolders);
     }
+    
+    /**
+     * Get git-storage folder path.
+     *
+     * @returns Absolute path to the git-storage folder (~/.taraproject/git-storage/)
+     */
+    getGitStoragePath(...subfolders: string[]): string {
+        return this.getHomePath('git-storage', ...subfolders);
+    }
 
     /**
      * Get dev folder path for experimental/testing purposes.

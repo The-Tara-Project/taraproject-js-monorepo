@@ -151,6 +151,21 @@ export class GTapeHandler {
         return this;
     }
 
+    async countLines(): Promise<number> {
+        const fileStream = fs.createReadStream(this.path, { encoding: 'utf-8' });
+        const rl = readline.createInterface({
+            input: fileStream,
+            crlfDelay: Infinity,
+        });
+        let lineCount = 0;
+        
+        for await (const _ of rl) {
+            lineCount++;
+        }
+        fileStream.close();
+        return lineCount;
+    }
+
     /**
      * Read all lines from the tape file as JSON with a callback.
      * No validation is performed - parsing failures result in parsed=null.

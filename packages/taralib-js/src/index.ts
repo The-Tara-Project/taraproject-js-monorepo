@@ -44,7 +44,4 @@ export { HomeManager } from './stack/global/managers/home-manager';
 // App handler
 export { AppHandler } from './base/app-handler';
 
-// Git DB handler
-export { GitDBHandler, type GitDBCommitLink } from './base/git-db-handler';
-
 

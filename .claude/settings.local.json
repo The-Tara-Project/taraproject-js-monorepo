@@ -1,4 +1,7 @@
 {
+  "env": {
+    "CLAUDE_CODE_TASK_LIST_ID": "taraproject-js-monorepo-tasks"
+  },
   "permissions": {
     "allow": [
       "Bash(npm run typecheck:*)",
@@ -42,10 +45,8 @@
       "mcp__ide__getDiagnostics",
       "Bash(git checkout:*)",
       "Bash(cat:*)",
-      "Bash(npx tsx examples/git-storage-example.ts)"
+      "Bash(npx tsx examples/git-storage-example.ts)",
+      "Bash(git stash:*)"
     ]
-  }, 
-  "env": {
-    "CLAUDE_CODE_TASK_LIST_ID": "taraproject-js-monorepo-tasks"
   }
 }
