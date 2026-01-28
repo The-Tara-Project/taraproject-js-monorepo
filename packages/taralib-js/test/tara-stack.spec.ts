@@ -29,8 +29,8 @@ describe('TaraStack', () => {
 
     it('should NOT provide direct manager access', () => {
         // These should not exist
-        expect((tara as any).tapes).toBeUndefined();
-        expect((tara as any).apps).toBeUndefined();
+        expect('tapes' in tara).toBe(false);
+        expect('apps' in tara).toBe(false);
     });
 
     it('should respect taraHome option', () => {

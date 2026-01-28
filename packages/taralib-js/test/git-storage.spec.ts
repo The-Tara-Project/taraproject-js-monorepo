@@ -859,8 +859,9 @@ describe('GitStorageManager', () => {
 
             const link1 = await tara.global.gitst.commit(file1);
 
-            // Clear the in-memory cache to force tape scan
-            (tara.global.gitst as any).assignment.repoCache.clear();
+            // Clear the in-memory cache to force tape scan (via internal API)
+            // @ts-expect-error internal test hook
+            tara.global.gitst.assignment.repoCache.clear();
 
             const file2 = path.join(tara.global.home.getHomePath(), 'cached2.txt');
             fs.writeFileSync(file2, 'data2', 'utf-8');
@@ -920,8 +921,9 @@ describe('GitStorageManager', () => {
             execSync(`git add ${TAPE_FILENAME}`, { cwd: repo0Path, stdio: 'pipe' });
             execSync('git commit -m "seed"', { cwd: repo0Path, stdio: 'pipe' });
 
-            // Clear cache so auto-assignment sees repo-0 as full
-            ((tara.global.gitst as any).assignment).repoCache.clear();
+            // Clear cache so auto-assignment sees repo-0 as full (via internal API)
+            // @ts-expect-error internal test hook
+            tara.global.gitst.assignment.repoCache.clear();
 
             const dir = path.join(tara.global.home.getHomePath(), 'newdir');
             fs.mkdirSync(dir, { recursive: true });

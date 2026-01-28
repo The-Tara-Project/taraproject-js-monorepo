@@ -131,9 +131,13 @@ export class GitHandler {
      * @throws Error if not inside a valid git working tree or command fails
      */
     execCmdAsync(command: string, options?: ExecOptions): Promise<string> {
-        this.ensureInsideWorkingTree();
-
         return new Promise((resolve, reject) => {
+            try {
+                this.ensureInsideWorkingTree();
+            } catch (error) {
+                return reject(error);
+            }
+
             exec(`git ${command}`, {
                 cwd: this.repoPath,
                 encoding: options?.encoding || 'utf-8',

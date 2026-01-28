@@ -36,7 +36,7 @@ describe('TapeHandler - Custom Metadata', () => {
         expect(metadata).toHaveProperty('tags');
         expect(metadata.tags).toEqual(['test', 'demo']);
         expect(metadata).toHaveProperty('nested');
-        expect((metadata as any).nested.key).toBe('value');
+        expect(metadata).toMatchObject({ nested: { key: 'value' } });
     });
 
     it('should work without custom metadata', async () => {
