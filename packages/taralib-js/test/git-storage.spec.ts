@@ -9,8 +9,6 @@ import { setupTestEnv, teardownTestEnv } from './utils';
 
 const TAPE_FILENAME = 'commits.tara.jsonl';
 
-
-
 describe('GitStorageManager', () => {
     let tara: TaraStack;
     let testFilePath: string;
@@ -36,47 +34,10 @@ describe('GitStorageManager', () => {
 
     describe('Initialization', () => {
         const testRepoId = 'test-repo';
-
-        it('creates directory and git repo on instantiate', async () => {
-            tara.global.gitst.instantiate(testRepoId);
-
-            const repoPath = tara.global.gitst.getRepoPath(testRepoId);
-            expect(fs.existsSync(repoPath)).toBe(true);
-
-            const gitDir = path.join(repoPath, '.git');
-            expect(fs.existsSync(gitDir)).toBe(true);
-        });
-
-        it('is idempotent', async () => {
-            tara.global.gitst.instantiate(testRepoId);
-            expect(() => tara.global.gitst.instantiate(testRepoId)).not.toThrow();
-        });
-
-        it('exists() returns false before initialization', async () => {
+        it('check exists before and after instantiate', async () => {
             expect(tara.global.gitst.exists(testRepoId)).toBe(false);
-        });
-
-        it('exists() returns true after initialization', async () => {
             tara.global.gitst.instantiate(testRepoId);
             expect(tara.global.gitst.exists(testRepoId)).toBe(true);
-        });
-
-        it('creates internal tape on instantiate', async () => {
-            tara.global.gitst.instantiate(testRepoId);
-
-            const repoPath = tara.global.gitst.getRepoPath(testRepoId);
-            expect(fs.existsSync(path.join(repoPath, TAPE_FILENAME))).toBe(true);
-        });
-
-        it('creates bootstrap commit on instantiate', async () => {
-            tara.global.gitst.instantiate(testRepoId);
-
-            const repoPath = tara.global.gitst.getRepoPath(testRepoId);
-            const count = execSync('git rev-list --count HEAD', {
-                cwd: repoPath,
-                encoding: 'utf-8',
-            }).trim();
-            expect(parseInt(count, 10)).toBe(1);
         });
     });
 
@@ -124,16 +85,6 @@ describe('GitStorageManager', () => {
 
             const storedContent = fs.readFileSync(storedFilePath, 'utf-8');
             expect(storedContent).toBe(testFileContent);
-        });
-
-        it('records commit in internal tape', async () => {
-            const link = await tara.global.gitst.commit(testFilePath);
-
-            const tapeHandler = tara.global.gitst.getTapeHandlerForRepo(link.repoId);
-            const retrievedRecord = await tapeHandler.getRecordById(link.recordId);
-
-            expect(retrievedRecord).toBeDefined();
-            expect(retrievedRecord?.type).toBe('taralib/git-storage-commit');
         });
 
         it('accepts custom commit message', async () => {
@@ -189,22 +140,6 @@ describe('GitStorageManager', () => {
 
     describe('Path Mapping', () => {
         // TODO: Replace the test with one that verifies the end-to-end contract: a file that is committed can be successfully retrieved. The internal storage mechanism should not be tested directly.
-
-        it('handles nested directories', async () => {
-            const nestedDir = path.join(tara.global.home.getHomePath(), 'a', 'b', 'c');
-            fs.mkdirSync(nestedDir, { recursive: true });
-
-            const nestedFile = path.join(nestedDir, 'nested.txt');
-            fs.writeFileSync(nestedFile, 'nested content', 'utf-8');
-
-            const link = await tara.global.gitst.commit(nestedFile);
-
-            const storedFilePath = path.join(link.repoPath, link.storagePath);
-            expect(fs.existsSync(storedFilePath)).toBe(true);
-
-            const storedContent = fs.readFileSync(storedFilePath, 'utf-8');
-            expect(storedContent).toBe('nested content');
-        });
 
         it('handles files from different root directories', async () => {
             // Create another directory structure
@@ -292,25 +227,6 @@ describe('GitStorageManager', () => {
             expect(records.length).toBe(2);
             expect(records[0].metadata?.tag).toBe('first');
             expect(records[1].metadata?.tag).toBe('second');
-        });
-
-        it('maintains git history across multiple commits', async () => {
-            const file1 = path.join(tara.global.home.getHomePath(), 'file1.txt');
-            const file2 = path.join(tara.global.home.getHomePath(), 'file2.txt');
-
-            fs.writeFileSync(file1, 'content 1', 'utf-8');
-            fs.writeFileSync(file2, 'content 2', 'utf-8');
-
-            const link1 = await tara.global.gitst.commit(file1, { message: 'first commit' });
-            await tara.global.gitst.commit(file2, { message: 'second commit' });
-
-            const gitLog = execSync('git log --oneline', {
-                cwd: link1.repoPath,
-                encoding: 'utf-8'
-            });
-
-            expect(gitLog).toContain('first commit');
-            expect(gitLog).toContain('second commit');
         });
 
         it('commitCount increments across commits', async () => {

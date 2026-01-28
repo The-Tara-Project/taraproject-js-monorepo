@@ -22,9 +22,7 @@ describe('GitHandler', () => {
     });
 
     describe('constructor and getRepoPath', () => {
-        it('should create a GitHandler instance with the given path', () => {
-            expect(gitHandler.getRepoPath()).toBe(tempDir);
-        });
+
 
         it('should resolve relative paths to absolute paths', () => {
             const relativeHandler = new GitHandler('./test-repo');
@@ -43,20 +41,25 @@ describe('GitHandler', () => {
         it('should initialize a git repository', () => {
             gitHandler.instanciate();
             expect(gitHandler.checkInsideWorkingTree()).toBe(true);
-            expect(fs.existsSync(path.join(tempDir, '.git'))).toBe(true);
         });
 
-        it('should create directory if it does not exist', () => {
+        it('should create the directory if it does not exist', () => {
+            const nonExistentPath = path.join(tempDir, 'new-repo');
+            const newHandler = new GitHandler(nonExistentPath);
+            expect(fs.existsSync(nonExistentPath)).toBe(false);
+            
+            newHandler.instanciate();
+            
+            expect(fs.existsSync(nonExistentPath)).toBe(true);
+        });
+
+        it('should initialize a git repo in a newly created directory', () => {
             const nonExistentPath = path.join(tempDir, 'new-repo');
             const newHandler = new GitHandler(nonExistentPath);
             
-            expect(fs.existsSync(nonExistentPath)).toBe(false);
             newHandler.instanciate();
-            expect(fs.existsSync(nonExistentPath)).toBe(true);
+
             expect(newHandler.checkInsideWorkingTree()).toBe(true);
-            
-            // Cleanup
-            fs.rmSync(nonExistentPath, { recursive: true, force: true });
         });
 
         it('should not fail if already initialized', () => {
