@@ -233,9 +233,11 @@ export class GitStorageManager {
             metadata: options?.metadata,
         });
 
-        // Append to tape
-        const tape = this.context.global.tapes.get(this.getTapeIdInternal());
+        // Append to tape and commit
+        const tapeId = this.getTapeIdInternal();
+        const tape = this.context.global.tapes.get(tapeId);
         tape.appendRecord(record);
+        this.context.global.tapes.commitChanges(tapeId);
 
         // Build complete link
         const link: TaraGitSTLink = {
@@ -346,9 +348,11 @@ export class GitStorageManager {
             links.push(link);
         }
 
-        // Append all records to tape in batch
-        const tape = this.context.global.tapes.get(this.getTapeIdInternal());
+        // Append all records to tape in batch and commit
+        const tapeId = this.getTapeIdInternal();
+        const tape = this.context.global.tapes.get(tapeId);
         tape.appendRecordBatch(records);
+        this.context.global.tapes.commitChanges(tapeId);
 
         return links;
     }

@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
     RecordHandler,
@@ -39,48 +40,114 @@ describe('tape', () => {
             const content = fs.readFileSync(testTape.getHomePath(), 'utf-8');
             const lines = content.trim().split('\n');
             expect(lines.length).toBe(3);
-            testTape.delete();
+            tara.global.tapes.delete(_testTapeId);
         });
     });
 
     describe('exists', () => {
-        it('reflects file existence', () => {
+        it('reflects repo existence', () => {
             const _testTapeId = `exists-test-${Date.now()}`;
+            expect(tara.global.tapes.exists(_testTapeId)).toBe(false);
+
+            // get() triggers instantiateRepo, so the repo now exists
             const testTape = tara.global.tapes.get(_testTapeId);
-            expect(testTape.exists()).toBe(false);
+            expect(tara.global.tapes.exists(_testTapeId)).toBe(true);
+
+            // Instantiate the tape file
             testTape.instantiate();
-            expect(testTape.exists()).toBe(true);
-            testTape.delete();
-            expect(testTape.exists()).toBe(false);
+            expect(tara.global.tapes.exists(_testTapeId)).toBe(true);
+
+            // Delete removes the whole repo
+            tara.global.tapes.delete(_testTapeId);
+            expect(tara.global.tapes.exists(_testTapeId)).toBe(false);
         });
     });
 
     describe('delete', () => {
-        it('deletes tape file safely', () => {
+        it('deletes tape repo safely', () => {
             const _testTapeId = `delete-test-${Date.now()}`;
             const testTape = tara.global.tapes.get(_testTapeId);
             testTape.instantiate();
-            expect(testTape.exists()).toBe(true);
-            expect(() => testTape.delete()).not.toThrow();
-            expect(testTape.exists()).toBe(false);
+            expect(tara.global.tapes.exists(_testTapeId)).toBe(true);
+            expect(() => tara.global.tapes.delete(_testTapeId)).not.toThrow();
+            expect(tara.global.tapes.exists(_testTapeId)).toBe(false);
 
             // Deleting again doesn't throw
-            expect(() => testTape.delete()).not.toThrow();
+            expect(() => tara.global.tapes.delete(_testTapeId)).not.toThrow();
         });
     });
 
     describe('instantiate', () => {
-        it('creates tape file and is idempotent', () => {
+        it('creates tape file inside git repo and is idempotent', () => {
             const tape = tara.global.tapes.get(testTapeId);
             expect(fs.existsSync(tape.getHomePath())).toBe(false);
 
             tape.instantiate();
             expect(fs.existsSync(tape.getHomePath())).toBe(true);
 
+            // Verify git repo exists
+            const repoPath = path.dirname(tape.getHomePath());
+            expect(fs.existsSync(path.join(repoPath, '.git'))).toBe(true);
+
             const firstContent = fs.readFileSync(tape.getHomePath(), 'utf-8');
             tape.instantiate();
             const secondContent = fs.readFileSync(tape.getHomePath(), 'utf-8');
             expect(firstContent).toBe(secondContent);
+        });
+    });
+
+    describe('directory layout', () => {
+        it('uses tapes/<tapeId>/<YYYYMM>-<tapeId>.tara.jsonl path', () => {
+            const tape = tara.global.tapes.get(testTapeId);
+            const tapePath = tape.getHomePath();
+
+            // Path should contain tapeId as a directory
+            expect(tapePath).toContain(path.join('tapes', testTapeId));
+
+            // Filename should have YYYYMM prefix
+            const filename = path.basename(tapePath);
+            expect(filename).toMatch(/^\d{6}-.*\.tara\.jsonl$/);
+            expect(filename).toContain(testTapeId);
+        });
+    });
+
+    describe('list', () => {
+        it('returns tape IDs that have git repos', () => {
+            const id1 = `list-test-a-${Date.now()}`;
+            const id2 = `list-test-b-${Date.now()}`;
+
+            tara.global.tapes.get(id1).instantiate();
+            tara.global.tapes.get(id2).instantiate();
+
+            const listed = tara.global.tapes.list();
+            expect(listed).toContain(id1);
+            expect(listed).toContain(id2);
+        });
+    });
+
+    describe('listTapeFiles', () => {
+        it('returns tape files in a repo', () => {
+            const _testTapeId = `files-test-${Date.now()}`;
+            tara.global.tapes.get(_testTapeId).instantiate();
+
+            const files = tara.global.tapes.listTapeFiles(_testTapeId);
+            expect(files.length).toBe(1);
+            expect(files[0]).toMatch(/\.tara\.jsonl$/);
+        });
+    });
+
+    describe('commitChanges', () => {
+        it('commits tape files to git', () => {
+            const _testTapeId = `commit-test-${Date.now()}`;
+            const tape = tara.global.tapes.get(_testTapeId);
+            tape.instantiate();
+            tape.appendRecord(new RecordHandler({ data: 'test' }));
+
+            // Should not throw
+            expect(() => tara.global.tapes.commitChanges(_testTapeId)).not.toThrow();
+
+            // Calling again with no changes should also not throw
+            expect(() => tara.global.tapes.commitChanges(_testTapeId)).not.toThrow();
         });
     });
 
@@ -173,4 +240,3 @@ describe('tape', () => {
     });
 
 });
-

@@ -508,7 +508,8 @@ async function recordEntry(
 
     // Backup to git-storage (async, fire-and-forget)
     if (state.gitStorageEnabled && !dismissed) {
-        backupFilesToGitStorage(context, recordId).then(({ links, commitHash }) => {
+        try {
+            const { links, commitHash } = await backupFilesToGitStorage(context, recordId);
             if (links.length > 0) {
                 const storageRecord = new RecordHandler({
                     type: 'tara-puller/git-storage-refs',
@@ -525,7 +526,9 @@ async function recordEntry(
                 tape.appendRecord(storageRecord);
                 vscode.window.setStatusBarMessage(`Tara: Backed up ${links.length} file(s)`, 3000);
             }
-        }).catch(console.error);
+        } catch (error) {
+            console.error(error);
+        }
     }
 }
 

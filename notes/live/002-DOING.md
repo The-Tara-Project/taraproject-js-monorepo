@@ -1,3 +1,13 @@
+## DOING: think Git-Storage System
+- make Git-Storage a reusable system
+- we can deplay a Git-Storage system on any folder
+- the current git-storage is just an instance
+- the principle is simple, a folder with repos at subfolder level...
+
+- Define purpose of `~/.taraproject/git-storage`
+    - Rename:`~/.taraproject/git-storage` -> `~/.taraproject/vault`
+- Make track `~/.taraproject/tapes` as a git-storage
+
 ## DOING: think about taraprojects
 - a folder with a `taraproject.json` inside
 - we can add a uuid to identify each project
