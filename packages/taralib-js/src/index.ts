@@ -41,10 +41,10 @@ export { SettingsManager } from './stack/global/managers/settings-manager';
 // Home handler
 export { HomeManager } from './stack/global/managers/home-manager';
 
-// Git operations
-export { GitHandler } from './base/git-handler';
-
 // App handler
 export { AppHandler } from './base/app-handler';
+
+// Git DB handler
+export { GitDBHandler, type GitDBCommitLink } from './base/git-db-handler';
 
 
