@@ -83,7 +83,7 @@ export class GitStorageManager {
         handler.instanciate();
 
         // Ensure tape exists
-        this.getTape(repoId).instantiate();
+        this.getTapeHandlerForRepo(repoId).instantiate();
 
         // If no commits yet, do an initial commit with the tape
         try {
@@ -264,7 +264,7 @@ export class GitStorageManager {
         }
 
         // Append all records to internal tape
-        const tape = this.getTape(repoId);
+        const tape = this.getTapeHandlerForRepo(repoId);
         tape.appendRecordBatch(records);
 
         // Stage all data files + tape file
@@ -367,6 +367,10 @@ export class GitStorageManager {
     }
 
 
+
+
+
+
     // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
     // MARK: Utils
     // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
@@ -435,7 +439,7 @@ export class GitStorageManager {
      * Get or create a TapeHandler for a repo.
      * @private
      */
-    private getTape(repoId: string): TapeHandler {
+    public getTapeHandlerForRepo(repoId: string): TapeHandler {
         let tape = this.tapes.get(repoId);
         if (!tape) {
             const tapePath = this.tapePath(repoId);

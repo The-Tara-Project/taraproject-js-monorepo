@@ -9,11 +9,7 @@ import { setupTestEnv, teardownTestEnv } from './utils';
 
 const TAPE_FILENAME = 'commits.tara.jsonl';
 
-/** Helper: get internal tape from repo path */
-function getInternalTape(repoPath: string): TapeHandler {
-    const tapePath = path.join(repoPath, TAPE_FILENAME);
-    return new TapeHandler('internal', tapePath);
-}
+
 
 describe('GitStorageManager', () => {
     let tara: TaraStack;
@@ -133,18 +129,11 @@ describe('GitStorageManager', () => {
         it('records commit in internal tape', async () => {
             const link = await tara.global.gitst.commit(testFilePath);
 
-            const tape = getInternalTape(link.repoPath);
-            let foundRecord = false;
+            const tapeHandler = tara.global.gitst.getTapeHandlerForRepo(link.repoId);
+            const retrievedRecord = await tapeHandler.getRecordById(link.recordId);
 
-            await tape.readRecords(({ parsed }) => {
-                if (parsed.__tararecord?.id === link.recordId) {
-                    foundRecord = true;
-                    expect(parsed.type).toBe('taralib/git-storage-commit');
-                    return 'stop';
-                }
-            });
-
-            expect(foundRecord).toBe(true);
+            expect(retrievedRecord).toBeDefined();
+            expect(retrievedRecord?.type).toBe('taralib/git-storage-commit');
         });
 
         it('accepts custom commit message', async () => {
@@ -174,18 +163,11 @@ describe('GitStorageManager', () => {
             const metadata = { foo: 'bar', number: 42 };
             const link = await tara.global.gitst.commit(testFilePath, { metadata });
 
-            const tape = getInternalTape(link.repoPath);
-            let foundRecord = false;
+            const tapeHandler = tara.global.gitst.getTapeHandlerForRepo(link.repoId);
+            const retrievedRecord = await tapeHandler.getRecordById(link.recordId);
 
-            await tape.readRecords(({ parsed }) => {
-                if (parsed.__tararecord?.id === link.recordId) {
-                    foundRecord = true;
-                    expect(parsed.metadata).toEqual(metadata);
-                    return 'stop';
-                }
-            });
-
-            expect(foundRecord).toBe(true);
+            expect(retrievedRecord).toBeDefined();
+            expect(retrievedRecord?.metadata).toEqual(metadata);
         });
 
         it('throws error for non-existent file', async () => {
@@ -284,7 +266,7 @@ describe('GitStorageManager', () => {
             expect(fs.readFileSync(path.join(link2.repoPath, link2.storagePath), 'utf-8')).toBe('content 2');
         });
 
-        it('tape records are queryable from internal tape', async () => {
+        it('tape records are queryable via TapeHandler', async () => {
             const file1 = path.join(tara.global.home.getHomePath(), 'file1.txt');
             const file2 = path.join(tara.global.home.getHomePath(), 'file2.txt');
 
@@ -298,10 +280,10 @@ describe('GitStorageManager', () => {
                 metadata: { tag: 'second' }
             });
 
-            const tape = getInternalTape(link1.repoPath);
+            const tapeHandler = tara.global.gitst.getTapeHandlerForRepo(link1.repoId);
             const records: any[] = [];
 
-            await tape.readRecords(({ parsed }) => {
+            await tapeHandler.readRecords(({ parsed }) => {
                 if (parsed.type === 'taralib/git-storage-commit') {
                     records.push(parsed);
                 }
@@ -555,7 +537,7 @@ describe('GitStorageManager', () => {
             await expect(tara.global.gitst.commitBatch(['relative/path.txt'])).rejects.toThrow('Path must be absolute');
         });
 
-        it('creates tape records for all files in internal tape', async () => {
+        it('creates tape records for all files via TapeHandler', async () => {
             const file1 = path.join(tara.global.home.getHomePath(), 'batch1.txt');
             const file2 = path.join(tara.global.home.getHomePath(), 'batch2.txt');
 
@@ -564,10 +546,10 @@ describe('GitStorageManager', () => {
 
             const links = await tara.global.gitst.commitBatch([file1, file2]);
 
-            const tape = getInternalTape(links[0].repoPath);
+            const tapeHandler = tara.global.gitst.getTapeHandlerForRepo(links[0].repoId);
             const foundRecords: string[] = [];
 
-            await tape.readRecords(({ parsed }) => {
+            await tapeHandler.readRecords(({ parsed }) => {
                 if (parsed.type === 'taralib/git-storage-commit') {
                     const recordId = parsed.__tararecord?.id;
                     if (recordId && links.some(l => l.recordId === recordId)) {
@@ -667,10 +649,10 @@ describe('GitStorageManager', () => {
 
             const links = await tara.global.gitst.commitFromRepo(externalRepoPath);
 
-            const tape = getInternalTape(links[0].repoPath);
+            const tapeHandler = tara.global.gitst.getTapeHandlerForRepo(links[0].repoId);
             let foundSourceRepo = false;
 
-            await tape.readRecords(({ parsed }) => {
+            await tapeHandler.readRecords(({ parsed }) => {
                 if (parsed.__tararecord?.id === links[0].recordId) {
                     expect(parsed.metadata?.sourceRepo).toBe(externalRepoPath);
                     foundSourceRepo = true;
@@ -729,9 +711,9 @@ describe('GitStorageManager', () => {
                 metadata: { customKey: 'customValue' }
             });
 
-            const tape = getInternalTape(links[0].repoPath);
+            const tapeHandler = tara.global.gitst.getTapeHandlerForRepo(links[0].repoId);
 
-            await tape.readRecords(({ parsed }) => {
+            await tapeHandler.readRecords(({ parsed }) => {
                 if (parsed.__tararecord?.id === links[0].recordId) {
                     expect(parsed.metadata?.customKey).toBe('customValue');
                     expect(parsed.metadata?.sourceRepo).toBe(externalRepoPath);

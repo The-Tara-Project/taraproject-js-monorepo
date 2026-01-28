@@ -312,6 +312,27 @@ export class TapeHandler {
         return metadata;
     }
 
+    // MARK: ...getRecordById
+    /**
+     * Retrieve a specific record from the tape by its ID.
+     *
+     * @param recordId - The ID of the record to retrieve.
+     * @returns The full ITaraRecord object, or undefined if not found.
+     */
+    async getRecordById(recordId: string): Promise<ITaraRecord | undefined> {
+        this.checkFile(); // Ensure tape file exists
+        let foundRecord: ITaraRecord | undefined;
+
+        await this.readRecords(({ parsed }) => {
+            if (parsed.__tararecord?.id === recordId) {
+                foundRecord = parsed;
+                return 'stop'; // Stop iterating once found
+            }
+        });
+
+        return foundRecord;
+    }
+
     /**
      * Check if the tape file exists.
      */

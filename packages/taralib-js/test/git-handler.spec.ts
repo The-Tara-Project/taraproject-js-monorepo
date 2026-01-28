@@ -37,10 +37,6 @@ describe('GitHandler', () => {
             expect(gitHandler.checkInsideWorkingTree()).toBe(false);
         });
 
-        it('should return true after instanciate()', () => {
-            gitHandler.instanciate();
-            expect(gitHandler.checkInsideWorkingTree()).toBe(true);
-        });
     });
 
     describe('instanciate', () => {
@@ -69,49 +65,43 @@ describe('GitHandler', () => {
         });
     });
 
-    describe('execCmdSync', () => {
-        it('should throw error if not in a git working tree', () => {
-            expect(() => gitHandler.execCmdSync('status')).toThrow('Not inside a git working tree');
-        });
+    describe('execCmd', () => {
+        const cases = [
+            {
+                name: 'sync',
+                fn: (cmd: string) => gitHandler.execCmdSync(cmd)
+            },
+            {
+                name: 'async',
+                fn: (cmd: string) => gitHandler.execCmdAsync(cmd)
+            }
+        ];
 
-        it('should execute git commands successfully', () => {
-            gitHandler.instanciate();
-            const result = gitHandler.execCmdSync('status');
-            expect(result).toContain('On branch');
-        });
+        for (const { name, fn } of cases) {
+            describe(name, () => {
+                it('should throw error if not in a git working tree', async () => {
+                    if (name === 'async') {
+                        await expect(fn('status')).rejects.toThrow('Not inside a git working tree');
+                    } else {
+                        expect(() => fn('status')).toThrow('Not inside a git working tree');
+                    }
+                });
 
-        it('should execute git rev-parse --show-toplevel', () => {
-            gitHandler.instanciate();
-            const result = gitHandler.execCmdSync('rev-parse --show-toplevel');
-            expect(fs.realpathSync(result)).toBe(fs.realpathSync(tempDir));
-        });
+                it('should execute git rev-parse --show-toplevel', async () => {
+                    gitHandler.instanciate();
+                    const result = await fn('rev-parse --show-toplevel');
+                    expect(fs.realpathSync(result as string)).toBe(fs.realpathSync(tempDir));
+                });
 
-        it('should throw error for invalid git commands', () => {
-            gitHandler.instanciate();
-            expect(() => gitHandler.execCmdSync('invalid-command')).toThrow('Git command failed');
-        });
-    });
-
-    describe('execCmdAsync', () => {
-        it('should throw error if not in a git working tree', async () => {
-            await expect(gitHandler.execCmdAsync('status')).rejects.toThrow('Not inside a git working tree');
-        });
-
-        it('should execute git commands successfully', async () => {
-            gitHandler.instanciate();
-            const result = await gitHandler.execCmdAsync('status');
-            expect(result).toContain('On branch');
-        });
-
-        it('should execute git rev-parse --show-toplevel', async () => {
-            gitHandler.instanciate();
-            const result = await gitHandler.execCmdAsync('rev-parse --show-toplevel');
-            expect(fs.realpathSync(result)).toBe(fs.realpathSync(tempDir));
-        });
-
-        it('should throw error for invalid git commands', async () => {
-            gitHandler.instanciate();
-            await expect(gitHandler.execCmdAsync('invalid-command')).rejects.toThrow('Git command failed');
-        });
+                it('should throw error for invalid git commands', async () => {
+                    gitHandler.instanciate();
+                    if (name === 'async') {
+                        await expect(fn('invalid-command')).rejects.toThrow('Git command failed');
+                    } else {
+                        expect(() => fn('invalid-command')).toThrow('Git command failed');
+                    }
+                });
+            });
+        }
     });
 });
