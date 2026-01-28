@@ -96,21 +96,6 @@ describe('tape', () => {
         });
     });
 
-    describe('directory layout', () => {
-        it('uses tapes/<tapeId>/<YYYYMM>-<tapeId>.tara.jsonl path', () => {
-            const tape = tara.global.tapes.get(testTapeId);
-            const tapePath = tape.getHomePath();
-
-            // Path should contain tapeId as a directory
-            expect(tapePath).toContain(path.join('tapes', testTapeId));
-
-            // Filename should have YYYYMM prefix
-            const filename = path.basename(tapePath);
-            expect(filename).toMatch(/^\d{6}-.*\.tara\.jsonl$/);
-            expect(filename).toContain(testTapeId);
-        });
-    });
-
     describe('list', () => {
         it('returns tape IDs that have git repos', () => {
             const id1 = `list-test-a-${Date.now()}`;

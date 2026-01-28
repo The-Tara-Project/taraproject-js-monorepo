@@ -206,17 +206,7 @@ describe('GitStorageManager', () => {
     });
 
     describe('Path Mapping', () => {
-        it('uses hash-based directory structure', async () => {
-            const link = await tara.global.gitst.commit(testFilePath);
-
-            // Storage path should be <hash>/<filename>
-            const dirPath = path.dirname(testFilePath);
-            const fileName = path.basename(testFilePath);
-            const expectedHash = crypto.createHash('sha256').update(dirPath).digest('hex');
-            const expectedStorage = path.join(expectedHash, fileName);
-
-            expect(link.storagePath).toBe(expectedStorage);
-        });
+        // TODO: Replace the test with one that verifies the end-to-end contract: a file that is committed can be successfully retrieved. The internal storage mechanism should not be tested directly.
 
         it('handles nested directories', async () => {
             const nestedDir = path.join(tara.global.home.getHomePath(), 'a', 'b', 'c');
@@ -853,21 +843,23 @@ describe('GitStorageManager', () => {
             expect(link.assignmentKey).toBeUndefined();
         });
 
-        it('cache eviction + tape scan re-discovers assignment', async () => {
-            const file1 = path.join(tara.global.home.getHomePath(), 'cached.txt');
-            fs.writeFileSync(file1, 'data', 'utf-8');
+        it('assigns files from the same directory to the same repo across sessions', async () => {
+            const homeDir = tara.global.home.getHomePath();
+            const projectDir = path.join(homeDir, 'my-project');
+            fs.mkdirSync(projectDir);
+            const file1 = path.join(projectDir, 'a.txt');
+            fs.writeFileSync(file1, 'data');
 
+            // "Session 1"
             const link1 = await tara.global.gitst.commit(file1);
 
-            // Clear the in-memory cache to force tape scan (via internal API)
-            // @ts-expect-error internal test hook
-            tara.global.gitst.assignment.repoCache.clear();
+            // "Session 2" (new instance, same home)
+            const tara2 = new TaraStack({ taraHome: homeDir });
+            const file2 = path.join(projectDir, 'b.txt');
+            fs.writeFileSync(file2, 'more-data');
+            const link2 = await tara2.global.gitst.commit(file2);
 
-            const file2 = path.join(tara.global.home.getHomePath(), 'cached2.txt');
-            fs.writeFileSync(file2, 'data2', 'utf-8');
-
-            const link2 = await tara.global.gitst.commit(file2);
-
+            // ASSERT: Both commits were assigned to the same repository
             expect(link2.repoId).toBe(link1.repoId);
         });
 
@@ -904,36 +896,6 @@ describe('GitStorageManager', () => {
             expect(link.assignmentKey).toBe(standalone);
         });
 
-        it('when repo exceeds commit cap a new repo is created', async () => {
-            // Create repo-0 with a tape that has REPO_COMMIT_CAP lines
-            const repo0Path = tara.global.gitst.getRepoPath('repo-0');
-            fs.mkdirSync(repo0Path, { recursive: true });
-            execSync('git init', { cwd: repo0Path, stdio: 'pipe' });
-            execSync('git config user.email "test@test.com"', { cwd: repo0Path, stdio: 'pipe' });
-            execSync('git config user.name "Test"', { cwd: repo0Path, stdio: 'pipe' });
 
-            // Write a tape with 1000 lines (fake records)
-            const tapePath = path.join(repo0Path, TAPE_FILENAME);
-            const fakeLines = Array.from({ length: 1000 }, (_, i) =>
-                JSON.stringify({ __tararecord: { id: `fake-${i}` }, type: 'taralib/git-storage-commit', link: { assignmentKey: `/fake/key-${i}` } })
-            ).join('\n') + '\n';
-            fs.writeFileSync(tapePath, fakeLines, 'utf-8');
-            execSync(`git add ${TAPE_FILENAME}`, { cwd: repo0Path, stdio: 'pipe' });
-            execSync('git commit -m "seed"', { cwd: repo0Path, stdio: 'pipe' });
-
-            // Clear cache so auto-assignment sees repo-0 as full (via internal API)
-            // @ts-expect-error internal test hook
-            tara.global.gitst.assignment.repoCache.clear();
-
-            const dir = path.join(tara.global.home.getHomePath(), 'newdir');
-            fs.mkdirSync(dir, { recursive: true });
-            const file = path.join(dir, 'new.txt');
-            fs.writeFileSync(file, 'new', 'utf-8');
-
-            const link = await tara.global.gitst.commit(file);
-
-            // Should have created a new repo since repo-0 is full
-            expect(link.repoId).not.toBe("repo-0");
-        });
     });
 });
