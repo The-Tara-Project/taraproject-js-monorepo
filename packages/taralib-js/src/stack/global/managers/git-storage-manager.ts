@@ -417,7 +417,8 @@ export class GitStorageManager {
         let handler = this.gitHandlers.get(repoId);
         if (!handler) {
             const repoPath = this.getRepoPath(repoId);
-            handler = new GitHandler(repoPath);
+            const silent = this.context.settings.getSetting('silent') ?? true;
+            handler = new GitHandler(repoPath, { silent });
             this.gitHandlers.set(repoId, handler);
         }
         return handler;

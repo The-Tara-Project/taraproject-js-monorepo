@@ -14,9 +14,15 @@ export interface ExecOptions {
  */
 export class GitHandler {
     private repoPath: string;
+    private options: {};
+    private silent: boolean;
 
-    constructor(repoPath: string) {
+    constructor(
+        repoPath: string, 
+        options?: { verbose?: boolean; silent?: boolean }
+    ) {
         this.repoPath = path.resolve(repoPath);
+        this.options = options ?? {};
     }
 
     /**
@@ -36,7 +42,7 @@ export class GitHandler {
             const result = execSync('git rev-parse --is-inside-work-tree', {
                 cwd: this.repoPath,
                 encoding: 'utf-8',
-                stdio: ['pipe', 'pipe', 'pipe']
+                stdio: this.silent ? ['pipe', 'pipe', 'pipe'] : 'inherit'
             }).trim();
             return result === 'true';
         } catch (error) {
@@ -70,7 +76,8 @@ export class GitHandler {
         try {
             execSync('git init', {
                 cwd: this.repoPath,
-                encoding: 'utf-8'
+                encoding: 'utf-8',
+                stdio: this.silent ? ['pipe', 'pipe', 'pipe'] : 'inherit'
             });
         } catch (error) {
             throw new Error(`Failed to initialize git repository at ${this.repoPath}: ${error}`);
@@ -89,7 +96,8 @@ export class GitHandler {
         try {
             const result = execSync('git rev-parse --show-toplevel', {
                 cwd: this.repoPath,
-                encoding: 'utf-8'
+                encoding: 'utf-8',
+                stdio: this.silent ? ['pipe', 'pipe', 'pipe'] : 'inherit'
             }).trim();
             return result;
         } catch (error) {
@@ -106,7 +114,7 @@ export class GitHandler {
      * @throws Error if not inside a valid git working tree or command fails
      */
     execCmdSync(command: string, options?: ExecOptions): string {
-        
+
         this.ensureInsideWorkingTree();
 
         try {
@@ -115,6 +123,7 @@ export class GitHandler {
                 encoding: options?.encoding || 'utf-8',
                 timeout: options?.timeout,
                 maxBuffer: options?.maxBuffer,
+                stdio: this.silent ? ['pipe', 'pipe', 'pipe'] : 'inherit'
             });
             return result.toString().trim();
         } catch (error) {
@@ -143,7 +152,7 @@ export class GitHandler {
                 encoding: options?.encoding || 'utf-8',
                 timeout: options?.timeout,
                 maxBuffer: options?.maxBuffer
-            }, (error, stdout, stderr) => {
+            }, (error: any, stdout: any, stderr: any) => {
                 if (error) {
                     reject(new Error(`Git command failed: git ${command}\n${stderr || error.message}`));
                     return;
