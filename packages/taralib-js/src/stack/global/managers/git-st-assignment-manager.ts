@@ -4,7 +4,6 @@ import * as path from 'path';
 import type { TaraStack } from '../../tara-stack';
 import { TapeHandler } from '../../../base/tape-handler';
 
-const TAPE_FILENAME = 'commits.tara.jsonl';
 const REPO_COMMIT_CAP = 1000;
 const REPO_CACHE_MAX = 100;
 
@@ -145,26 +144,36 @@ export class GitStAssignmentManager {
     // MARK: ...scanTapesForKey
     /**
      * Scan all existing repo tapes looking for a record with matching assignmentKey.
+     * Scans tapes in reverse chronological order (most recent first) for performance.
      * Returns repoId if found, null otherwise.
      */
     private async scanTapesForKey(key: string): Promise<string | null> {
         const repoIds = this.listRepoIds();
         for (const repoId of repoIds) {
-            const tapePath = this.tapePath(repoId);
-            if (!fs.existsSync(tapePath)) continue;
+            // Get all tape files from tapes/ subfolder
+            const tapesDir = this.getTapesDir(repoId);
+            if (!fs.existsSync(tapesDir)) continue;
 
-            const tape = this.getTape(repoId);
-            let found = false;
+            const tapeFiles = fs.readdirSync(tapesDir)
+                .filter(f => f.endsWith('.tara.jsonl'))
+                .sort()
+                .reverse(); // Most recent first
 
-            await tape.readJSONL(({ parsed }) => {
-                if (parsed?.link?.assignmentKey === key) {
-                    found = true;
-                    return 'stop';
+            // Scan each tape file
+            for (const tapeFile of tapeFiles) {
+                const tape = this.getTape(repoId, path.join(tapesDir, tapeFile));
+                let found = false;
+
+                await tape.readJSONL(({ parsed }) => {
+                    if (parsed?.link?.assignmentKey === key) {
+                        found = true;
+                        return 'stop';
+                    }
+                });
+
+                if (found) {
+                    return repoId;
                 }
-            });
-
-            if (found) {
-                return repoId;
             }
         }
         return null;
@@ -181,12 +190,18 @@ export class GitStAssignmentManager {
         let minCount = Infinity;
         let minRepo = '';
         for (const repoId of repoIds) {
-            const tapePath = path.join(this.getRepoPath(repoId), TAPE_FILENAME);
+            const tapesDir = this.getTapesDir(repoId);
 
             let count = 0;
-            if (fs.existsSync(tapePath)) {
-                const tapeHandler = this.getTape(repoId);
-                count = await tapeHandler.countLines();
+            if (fs.existsSync(tapesDir)) {
+                // Count lines across all tape files
+                const tapeFiles = fs.readdirSync(tapesDir)
+                    .filter(f => f.endsWith('.tara.jsonl'));
+
+                for (const tapeFile of tapeFiles) {
+                    const tapeHandler = this.getTape(repoId, path.join(tapesDir, tapeFile));
+                    count += await tapeHandler.countLines();
+                }
             }
             if (count < minCount) {
                 minCount = count;
@@ -254,21 +269,22 @@ export class GitStAssignmentManager {
         return this.getPath(repoId);
     }
 
-    // MARK: ...tapePath
+    // MARK: ...getTapesDir
     /**
-     * Get the path to the internal tape for a repo.
+     * Get the tapes directory for a repo.
      */
-    private tapePath(repoId: string): string {
-        return path.join(this.getRepoPath(repoId), TAPE_FILENAME);
+    private getTapesDir(repoId: string): string {
+        return path.join(this.getRepoPath(repoId), 'tapes');
     }
 
     // MARK: ...getTape
     /**
      * Get a TapeHandler for reading tape content.
-     * Note: This is only used for counting lines, not for writing.
+     * Note: This is only used for counting lines and scanning, not for writing.
+     * @param repoId - Repository identifier
+     * @param tapePath - Full path to the tape file
      */
-    private getTape(repoId: string): TapeHandler {
-        const tapePath = this.tapePath(repoId);
+    private getTape(repoId: string, tapePath: string): TapeHandler {
         const writer = this.context.settings.getSetting('writer');
         return new TapeHandler(repoId, tapePath, { writer });
     }

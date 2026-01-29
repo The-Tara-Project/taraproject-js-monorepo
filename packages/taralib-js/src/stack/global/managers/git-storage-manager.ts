@@ -5,10 +5,9 @@ import * as path from 'path';
 import { GitHandler } from '../../../base/git-handler';
 import { RecordHandler } from '../../../base/record-handler';
 import { TapeHandler } from '../../../base/tape-handler';
+import { YYYYMM_prefix } from '../../../base/utils';
 import type { TaraStack } from '../../tara-stack';
 import { GitStAssignmentManager, type GitStAssignmentLink } from './git-st-assignment-manager';
-
-const TAPE_FILENAME = 'commits.tara.jsonl';
 
 export interface TaraGitSTLink {
     repoId: string;
@@ -33,7 +32,6 @@ export interface TaraGitSTLink {
  * Bootstrap pattern: Constructor only stores context, no logic.
  */
 export class GitStorageManager {
-    private tapes: Map<string, TapeHandler> = new Map();
     private gitHandlers: Map<string, GitHandler> = new Map();
     private assignment: GitStAssignmentManager;
 
@@ -70,7 +68,7 @@ export class GitStorageManager {
      * Initialize git-storage system for a specific repo.
      * - Creates repo directory
      * - Initializes git repo
-     * - Creates internal tape
+     * - Creates tapes directory and current month's tape
      * - Creates bootstrap commit if no commits exist
      * Idempotent operation.
      *
@@ -82,14 +80,20 @@ export class GitStorageManager {
         // GitHandler handles directory creation + git init (idempotent)
         handler.instanciate();
 
-        // Ensure tape exists
+        // Ensure tapes directory exists
+        const tapesDir = this.getTapesDir(repoId);
+        if (!fs.existsSync(tapesDir)) {
+            fs.mkdirSync(tapesDir, { recursive: true });
+        }
+
+        // Ensure current month's tape exists
         this.getRepoTape(repoId).instantiate();
 
         // If no commits yet, do an initial commit with the tape
         try {
             handler.execCmdSync('rev-parse HEAD');
         } catch {
-            handler.execCmdSync(`add ${TAPE_FILENAME}`);
+            handler.execCmdSync(`add tapes/${this.buildCurrentTapeName(repoId)}`);
             handler.execCmdSync('commit -m "init: bootstrap tape"');
         }
     }
@@ -269,7 +273,8 @@ export class GitStorageManager {
 
         // Stage all data files + tape file
         const handler = this.getGitHandler(repoId);
-        const allPaths = [...storagePaths, TAPE_FILENAME];
+        const tapePath = `tapes/${this.buildCurrentTapeName(repoId)}`;
+        const allPaths = [...storagePaths, tapePath];
         for (const p of allPaths) {
             handler.execCmdSync(`add "${p.replace(/"/g, '\\"')}"`);
         }
@@ -435,29 +440,67 @@ export class GitStorageManager {
         return parseInt(output, 10);
     }
 
-    // MARK: ...getTape
+    // MARK: ...buildCurrentTapeName
     /**
-     * Get or create a TapeHandler for a repo.
+     * Build the current month's tape filename.
      * @private
      */
-    public getRepoTape(repoId: string): TapeHandler {
-        let tape = this.tapes.get(repoId);
-        if (!tape) {
-            const tapePath = this.tapePath(repoId);
-            const writer = this.context.settings.getSetting('writer');
-            tape = new TapeHandler(repoId, tapePath, { writer });
-            this.tapes.set(repoId, tape);
+    private buildCurrentTapeName(repoId: string): string {
+        return `${YYYYMM_prefix(repoId)}.tara.jsonl`;
+    }
+
+    // MARK: ...getTapesDir
+    /**
+     * Get the tapes directory for a repo.
+     * @private
+     */
+    private getTapesDir(repoId: string): string {
+        return path.join(this.getRepoPath(repoId), 'tapes');
+    }
+
+    // MARK: ...getTape
+    /**
+     * Get a TapeHandler for a repo.
+     * @param repoId - Repository identifier
+     * @param tapeFile - Optional specific tape filename (for reading historical tapes)
+     */
+    public getRepoTape(repoId: string, tapeFile?: string): TapeHandler {
+        const tapesDir = this.getTapesDir(repoId);
+        // Ensure tapes directory exists
+        if (!fs.existsSync(tapesDir)) {
+            fs.mkdirSync(tapesDir, { recursive: true });
         }
-        return tape;
+        const tapePath = tapeFile
+            ? path.join(tapesDir, tapeFile)
+            : this.tapePath(repoId);
+        const writer = this.context.settings.getSetting('writer');
+        return new TapeHandler(repoId, tapePath, { writer });
     }
 
     // MARK: ...tapePath
     /**
-     * Get the path to the internal tape for a repo.
+     * Get the path to the current month's tape for a repo.
      * @private
      */
     private tapePath(repoId: string): string {
-        return path.join(this.getRepoPath(repoId), TAPE_FILENAME);
+        return path.join(this.getTapesDir(repoId), this.buildCurrentTapeName(repoId));
+    }
+
+    // MARK: ...listTapeFiles
+    /**
+     * List all tape files for a repo.
+     * Returns filenames sorted chronologically (YYYYMM prefix ensures this).
+     *
+     * @param repoId - Repository identifier
+     * @returns Array of tape filenames (e.g., ['202512-repo.tara.jsonl', '202601-repo.tara.jsonl'])
+     */
+    listTapeFiles(repoId: string): string[] {
+        const tapesDir = this.getTapesDir(repoId);
+        if (!fs.existsSync(tapesDir)) return [];
+
+        return fs.readdirSync(tapesDir)
+            .filter(f => f.endsWith('.tara.jsonl'))
+            .sort();
     }
 
     // MARK: ...exists

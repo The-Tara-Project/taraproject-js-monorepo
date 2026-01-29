@@ -7,7 +7,12 @@ import { TaraStack } from '../src';
 import { TapeHandler } from '../src/base/tape-handler';
 import { setupTestEnv, teardownTestEnv } from './utils';
 
-const TAPE_FILENAME = 'commits.tara.jsonl';
+function getCurrentTapeFilename(repoId: string): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return `${year}${month}-${repoId}.tara.jsonl`;
+}
 
 describe('GitStorageManager', () => {
     let tara: TaraStack;
@@ -190,11 +195,13 @@ describe('GitStorageManager', () => {
         });
 
         it('tape records are queryable via TapeHandler', async () => {
+            console.log('TapeHandler test started');
             const file1 = tara.global.home.getHomePath('file1.txt');
             const file2 = tara.global.home.getHomePath('file2.txt');
-
+            
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
+            console.log('files created');
 
             const link1 = await tara.global.gitst.commit(file1, {
                 metadata: { tag: 'first' }
@@ -202,6 +209,7 @@ describe('GitStorageManager', () => {
             const link2 = await tara.global.gitst.commit(file2, {
                 metadata: { tag: 'second' }
             });
+            console.log('files committed');
 
             const tapeHandler = tara.global.gitst.getRepoTape(link1.repoId);
             const records: any[] = [];
@@ -211,6 +219,7 @@ describe('GitStorageManager', () => {
                     records.push(parsed);
                 }
             });
+            console.log('tape ');
 
             expect(records.length).toBe(2);
             expect(records[0].metadata?.tag).toBe('first');
@@ -337,7 +346,7 @@ describe('GitStorageManager', () => {
             expect(fs.existsSync(path.join(link2.repoPath, '.git'))).toBe(true);
         });
 
-        it('each repo has its own internal tape', async () => {
+        it('each repo has its own internal tape in tapes subfolder', async () => {
             const file1 = path.join(tara.global.home.getHomePath(), 'file1.txt');
             const file2 = path.join(tara.global.home.getHomePath(), 'file2.txt');
 
@@ -347,9 +356,9 @@ describe('GitStorageManager', () => {
             const link1 = await tara.global.gitst.commit(file1, { repoId: 'repo-a' });
             const link2 = await tara.global.gitst.commit(file2, { repoId: 'repo-b' });
 
-            // Each repo has its own tape file
-            expect(fs.existsSync(path.join(link1.repoPath, TAPE_FILENAME))).toBe(true);
-            expect(fs.existsSync(path.join(link2.repoPath, TAPE_FILENAME))).toBe(true);
+            // Each repo has its own tape file in tapes/ subfolder
+            expect(fs.existsSync(path.join(link1.repoPath, 'tapes', getCurrentTapeFilename('repo-a')))).toBe(true);
+            expect(fs.existsSync(path.join(link2.repoPath, 'tapes', getCurrentTapeFilename('repo-b')))).toBe(true);
         });
 
         it('batch commits to specified repo', async () => {
@@ -742,7 +751,60 @@ describe('GitStorageManager', () => {
 
             expect(link.assignmentKey).toBe(standalone);
         });
+    });
 
+    describe('Monthly Tape Rotation', () => {
+        it('generates correct monthly tape filename in tapes subfolder', () => {
+            const repoId = 'test-repo';
+            tara.global.gitst.instantiate(repoId);
 
+            const tapes = tara.global.gitst.listTapeFiles(repoId);
+            expect(tapes.length).toBe(1);
+            expect(tapes[0]).toMatch(/^\d{6}-test-repo\.tara\.jsonl$/);
+
+            // Verify tapes/ subfolder exists
+            const tapesDir = path.join(tara.global.gitst.getRepoPath(repoId), 'tapes');
+            expect(fs.existsSync(tapesDir)).toBe(true);
+        });
+
+        it('listTapeFiles returns empty array for non-existent repo', () => {
+            const tapes = tara.global.gitst.listTapeFiles('nonexistent-repo');
+            expect(tapes).toEqual([]);
+        });
+
+        it('commits create records in monthly tape file', async () => {
+            const file = path.join(tara.global.home.getHomePath(), 'rotation-test.txt');
+            fs.writeFileSync(file, 'content', 'utf-8');
+
+            const link = await tara.global.gitst.commit(file, { repoId: 'rotation-repo' });
+
+            // Verify tape exists in tapes/ subfolder
+            const expectedTape = getCurrentTapeFilename('rotation-repo');
+            const tapePath = path.join(link.repoPath, 'tapes', expectedTape);
+            expect(fs.existsSync(tapePath)).toBe(true);
+
+            // Verify listTapeFiles returns it
+            const tapes = tara.global.gitst.listTapeFiles('rotation-repo');
+            expect(tapes).toContain(expectedTape);
+        });
+
+        it('getRepoTape with tapeFile parameter reads specific tape', async () => {
+            const file = path.join(tara.global.home.getHomePath(), 'tape-param-test.txt');
+            fs.writeFileSync(file, 'content', 'utf-8');
+
+            const link = await tara.global.gitst.commit(file, { repoId: 'tape-param-repo' });
+
+            // Get tape by specific filename
+            const tapeFile = getCurrentTapeFilename('tape-param-repo');
+            const tape = tara.global.gitst.getRepoTape('tape-param-repo', tapeFile);
+
+            const records: any[] = [];
+            await tape.readRecords(({ parsed }) => {
+                records.push(parsed);
+            });
+
+            expect(records.length).toBeGreaterThan(0);
+            expect(records.some(r => r.__tararecord?.id === link.recordId)).toBe(true);
+        });
     });
 });
