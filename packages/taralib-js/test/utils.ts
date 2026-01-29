@@ -16,13 +16,11 @@ export function randomTestDir(
 export function setupTestEnv(options?: {
     taraHome?: string;
     writer?: string;
-    silent?: boolean;
 }): TaraStack {
 
     const tara = new TaraStack({
         writer: options?.writer || 'test-runner',
-        taraHome: options?.taraHome || randomTestDir(),
-        silent: options?.silent ?? true
+        taraHome: options?.taraHome || randomTestDir()
     });
 
     const testDir = tara.global.home.getHomePath();

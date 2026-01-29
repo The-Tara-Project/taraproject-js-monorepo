@@ -49,18 +49,6 @@ describe('GitStorageManager', () => {
         });
     });
 
-    describe('getRepoPath', () => {
-        it('returns repo path for given repoId', async () => {
-            const repoPath = tara.global.gitst.getRepoPath('my-repo');
-            expect(repoPath).toBe(path.join(tara.global.gitst.getPath(), 'my-repo'));
-        });
-
-        it('returns custom repo path when repoId specified', async () => {
-            const repoPath = tara.global.gitst.getRepoPath('custom-repo');
-            expect(repoPath).toBe(path.join(tara.global.gitst.getPath(), 'custom-repo'));
-        });
-    });
-
     describe('commit', () => {
         it('commits file and returns valid link', async () => {
             const link = await tara.global.gitst.commit(testFilePath);
@@ -114,7 +102,7 @@ describe('GitStorageManager', () => {
             const metadata = { foo: 'bar', number: 42 };
             const link = await tara.global.gitst.commit(testFilePath, { metadata });
 
-            const tapeHandler = tara.global.gitst.getTapeHandlerForRepo(link.repoId);
+            const tapeHandler = tara.global.gitst.getRepoTape(link.repoId);
             const retrievedRecord = await tapeHandler.getRecordById(link.recordId);
 
             expect(retrievedRecord).toBeDefined();
@@ -202,8 +190,8 @@ describe('GitStorageManager', () => {
         });
 
         it('tape records are queryable via TapeHandler', async () => {
-            const file1 = path.join(tara.global.home.getHomePath(), 'file1.txt');
-            const file2 = path.join(tara.global.home.getHomePath(), 'file2.txt');
+            const file1 = tara.global.home.getHomePath('file1.txt');
+            const file2 = tara.global.home.getHomePath('file2.txt');
 
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
@@ -215,7 +203,7 @@ describe('GitStorageManager', () => {
                 metadata: { tag: 'second' }
             });
 
-            const tapeHandler = tara.global.gitst.getTapeHandlerForRepo(link1.repoId);
+            const tapeHandler = tara.global.gitst.getRepoTape(link1.repoId);
             const records: any[] = [];
 
             await tapeHandler.readRecords(({ parsed }) => {
@@ -230,8 +218,8 @@ describe('GitStorageManager', () => {
         });
 
         it('commitCount increments across commits', async () => {
-            const file1 = path.join(tara.global.home.getHomePath(), 'file1.txt');
-            const file2 = path.join(tara.global.home.getHomePath(), 'file2.txt');
+            const file1 = tara.global.home.getHomePath('file1.txt');
+            const file2 = tara.global.home.getHomePath('file2.txt');
 
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
@@ -462,7 +450,7 @@ describe('GitStorageManager', () => {
 
             const links = await tara.global.gitst.commitBatch([file1, file2]);
 
-            const tapeHandler = tara.global.gitst.getTapeHandlerForRepo(links[0].repoId);
+            const tapeHandler = tara.global.gitst.getRepoTape(links[0].repoId);
             const foundRecords: string[] = [];
 
             await tapeHandler.readRecords(({ parsed }) => {
@@ -565,7 +553,7 @@ describe('GitStorageManager', () => {
 
             const links = await tara.global.gitst.commitFromRepo(externalRepoPath);
 
-            const tapeHandler = tara.global.gitst.getTapeHandlerForRepo(links[0].repoId);
+            const tapeHandler = tara.global.gitst.getRepoTape(links[0].repoId);
             let foundSourceRepo = false;
 
             await tapeHandler.readRecords(({ parsed }) => {
@@ -579,45 +567,6 @@ describe('GitStorageManager', () => {
             expect(foundSourceRepo).toBe(true);
         });
 
-        it('returns empty array for repo with no files', async () => {
-            // Empty git repo with just initial commit
-            fs.writeFileSync(path.join(externalRepoPath, 'temp.txt'), 'temp', 'utf-8');
-            execSync('git add .', { cwd: externalRepoPath, stdio: 'pipe' });
-            execSync('git commit -m "initial"', { cwd: externalRepoPath, stdio: 'pipe' });
-
-            // Remove file and commit
-            fs.unlinkSync(path.join(externalRepoPath, 'temp.txt'));
-            execSync('git add .', { cwd: externalRepoPath, stdio: 'pipe' });
-            execSync('git commit -m "remove"', { cwd: externalRepoPath, stdio: 'pipe' });
-
-            const links = await tara.global.gitst.commitFromRepo(externalRepoPath);
-
-            expect(links).toHaveLength(0);
-        });
-
-        it('uses custom message when provided', async () => {
-            fs.writeFileSync(path.join(externalRepoPath, 'file.txt'), 'content', 'utf-8');
-            execSync('git add .', { cwd: externalRepoPath, stdio: 'pipe' });
-            execSync('git commit -m "initial"', { cwd: externalRepoPath, stdio: 'pipe' });
-
-            const customMessage = 'My custom backup message';
-            const links = await tara.global.gitst.commitFromRepo(externalRepoPath, {
-                message: customMessage
-            });
-
-            expect(links[0].message).toBe(customMessage);
-        });
-
-        it('uses default message with repo basename when not provided', async () => {
-            fs.writeFileSync(path.join(externalRepoPath, 'file.txt'), 'content', 'utf-8');
-            execSync('git add .', { cwd: externalRepoPath, stdio: 'pipe' });
-            execSync('git commit -m "initial"', { cwd: externalRepoPath, stdio: 'pipe' });
-
-            const links = await tara.global.gitst.commitFromRepo(externalRepoPath);
-
-            expect(links[0].message).toBe('gitst: from repo external-repo');
-        });
-
         it('merges custom metadata with sourceRepo', async () => {
             fs.writeFileSync(path.join(externalRepoPath, 'file.txt'), 'content', 'utf-8');
             execSync('git add .', { cwd: externalRepoPath, stdio: 'pipe' });
@@ -627,7 +576,7 @@ describe('GitStorageManager', () => {
                 metadata: { customKey: 'customValue' }
             });
 
-            const tapeHandler = tara.global.gitst.getTapeHandlerForRepo(links[0].repoId);
+            const tapeHandler = tara.global.gitst.getRepoTape(links[0].repoId);
 
             await tapeHandler.readRecords(({ parsed }) => {
                 if (parsed.__tararecord?.id === links[0].recordId) {

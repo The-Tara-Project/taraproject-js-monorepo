@@ -3,7 +3,5 @@ export interface TaraStackSettings {
     writer?: string;
     taraHome?: string;
     workingDir?: string;
-    /** Silent mode - suppress git command output (defaults to true). */
-    silent?: boolean;
     [keys: string]: any;
 }

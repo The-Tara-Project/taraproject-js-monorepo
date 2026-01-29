@@ -2,10 +2,11 @@ import { execSync, exec } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
-export interface ExecOptions {
+export interface GitHandlerOptions {
     encoding?: BufferEncoding;
     timeout?: number;
     maxBuffer?: number;
+    silent?: boolean;
 }
 
 /**
@@ -14,12 +15,11 @@ export interface ExecOptions {
  */
 export class GitHandler {
     private repoPath: string;
-    private options: {};
-    private silent: boolean;
+    private options: GitHandlerOptions;
 
     constructor(
-        repoPath: string, 
-        options?: { verbose?: boolean; silent?: boolean }
+        repoPath: string,
+        options?: GitHandlerOptions
     ) {
         this.repoPath = path.resolve(repoPath);
         this.options = options ?? {};
@@ -32,6 +32,25 @@ export class GitHandler {
         return this.repoPath;
     }
 
+    private _execSyncOptions(captureOutput: boolean = false): Parameters<typeof execSync>[1] {
+        return {
+            cwd: this.repoPath,
+            encoding: this.options?.encoding || 'utf-8',
+            timeout: this.options?.timeout,
+            maxBuffer: this.options?.maxBuffer,
+            stdio: this.options.silent || captureOutput ? ['pipe', 'pipe', 'pipe'] : 'inherit'
+        }
+    }
+
+    private _execOptions(): Parameters<typeof exec>[1] {
+        return {
+            cwd: this.repoPath,
+            encoding: this.options?.encoding || 'utf-8',
+            timeout: this.options?.timeout,
+            maxBuffer: this.options?.maxBuffer
+        }
+    }
+
     /**
      * Check if we are inside a git working tree.
      * Uses `git rev-parse --is-inside-work-tree` to verify.
@@ -39,11 +58,10 @@ export class GitHandler {
      */
     checkInsideWorkingTree(): boolean {
         try {
-            const result = execSync('git rev-parse --is-inside-work-tree', {
-                cwd: this.repoPath,
-                encoding: 'utf-8',
-                stdio: this.silent ? ['pipe', 'pipe', 'pipe'] : 'inherit'
-            }).trim();
+            const result = execSync(
+                'git rev-parse --is-inside-work-tree',
+                this._execSyncOptions(true)
+            ).toString().trim();
             return result === 'true';
         } catch (error) {
             return false;
@@ -56,7 +74,7 @@ export class GitHandler {
         }
     }
 
-    /**
+    /** 
      * Initialize the git repository if it doesn't exist.
      * Creates the directory if it doesn't exist.
      * @throws Error if initialization fails
@@ -74,11 +92,10 @@ export class GitHandler {
 
         // Initialize git repo
         try {
-            execSync('git init', {
-                cwd: this.repoPath,
-                encoding: 'utf-8',
-                stdio: this.silent ? ['pipe', 'pipe', 'pipe'] : 'inherit'
-            });
+            execSync(
+                'git init',
+                this._execSyncOptions()
+            );
         } catch (error) {
             throw new Error(`Failed to initialize git repository at ${this.repoPath}: ${error}`);
         }
@@ -94,11 +111,10 @@ export class GitHandler {
 
     getRepoRootPath(): string {
         try {
-            const result = execSync('git rev-parse --show-toplevel', {
-                cwd: this.repoPath,
-                encoding: 'utf-8',
-                stdio: this.silent ? ['pipe', 'pipe', 'pipe'] : 'inherit'
-            }).trim();
+            const result = execSync(
+                'git rev-parse --show-toplevel',
+                this._execSyncOptions(true)
+            ).toString().trim();
             return result;
         } catch (error) {
             throw new Error(`Failed to get git repository root path: ${error}`);
@@ -113,19 +129,16 @@ export class GitHandler {
      * @returns Command output as string
      * @throws Error if not inside a valid git working tree or command fails
      */
-    execCmdSync(command: string, options?: ExecOptions): string {
+    execCmdSync(command: string): string {
 
         this.ensureInsideWorkingTree();
 
         try {
-            const result = execSync(`git ${command}`, {
-                cwd: this.repoPath,
-                encoding: options?.encoding || 'utf-8',
-                timeout: options?.timeout,
-                maxBuffer: options?.maxBuffer,
-                stdio: this.silent ? ['pipe', 'pipe', 'pipe'] : 'inherit'
-            });
-            return result.toString().trim();
+            const result = execSync(
+                `git ${command}`,
+                this._execSyncOptions(true)
+            ).toString().trim();
+            return result;
         } catch (error) {
             throw new Error(`Git command failed: git ${command}\n${error}`);
         }
@@ -139,7 +152,7 @@ export class GitHandler {
      * @returns Promise that resolves to command output as string
      * @throws Error if not inside a valid git working tree or command fails
      */
-    execCmdAsync(command: string, options?: ExecOptions): Promise<string> {
+    execCmdAsync(command: string): Promise<string> {
         return new Promise((resolve, reject) => {
             try {
                 this.ensureInsideWorkingTree();
@@ -147,18 +160,16 @@ export class GitHandler {
                 return reject(error);
             }
 
-            exec(`git ${command}`, {
-                cwd: this.repoPath,
-                encoding: options?.encoding || 'utf-8',
-                timeout: options?.timeout,
-                maxBuffer: options?.maxBuffer
-            }, (error: any, stdout: any, stderr: any) => {
-                if (error) {
-                    reject(new Error(`Git command failed: git ${command}\n${stderr || error.message}`));
-                    return;
-                }
-                resolve(stdout.trim());
-            });
+            exec(
+                `git ${command}`,
+                this._execOptions(),
+                (error: any, stdout: any, stderr: any) => {
+                    if (error) {
+                        reject(new Error(`Git command failed: git ${command}\n${stderr || error.message}`));
+                        return;
+                    }
+                    resolve(stdout.trim());
+                });
         });
     }
 }
