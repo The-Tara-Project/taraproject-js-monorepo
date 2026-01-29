@@ -158,11 +158,15 @@ export class TapeHandler {
         });
         let lineCount = 0;
         
-        for await (const _ of rl) {
-            lineCount++;
+        try {
+            for await (const _ of rl) {
+                lineCount++;
+            }
+            return lineCount;
+        } finally {
+            rl.close();
+            fileStream.close();
         }
-        fileStream.close();
-        return lineCount;
     }
 
     /**
@@ -179,29 +183,32 @@ export class TapeHandler {
 
         let lineNumber = 0;
 
-        for await (const line of rl) {
-            lineNumber++;
+        try {
+            for await (const line of rl) {
+                lineNumber++;
 
-            let parsed: any | null = null;
-            try {
-                parsed = JSON.parse(line);
-            } catch {
-                // If parse fails, parsed remains null
+                let parsed: any | null = null;
+                try {
+                    parsed = JSON.parse(line);
+                } catch {
+                    // If parse fails, parsed remains null
+                }
+
+                const elm: ReadJSONLCallbackArgs = {
+                    parsed,
+                    lineNumber,
+                    line,
+                };
+
+                const result = callback(elm);
+                if (result === 'stop') {
+                    break;
+                }
             }
-
-            const elm: ReadJSONLCallbackArgs = {
-                parsed,
-                lineNumber,
-                line,
-            };
-
-            const result = callback(elm);
-            if (result === 'stop') {
-                break;
-            }
+        } finally {
+            rl.close();
+            fileStream.close();
         }
-
-        fileStream.close();
     }
 
     /**
