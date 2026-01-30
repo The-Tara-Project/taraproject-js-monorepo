@@ -13,3 +13,4 @@ export { ContextProvider } from './stack/context-provider';
 
 // ===== Providers =====
 export { VscodeSessionProvider } from './stack/providers/vscode-session-provider';
+export { GitContainerProvider } from './stack/providers/git-container-provider';

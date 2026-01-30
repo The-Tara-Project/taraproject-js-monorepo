@@ -1,5 +1,6 @@
 import type { ContextProvider } from './context-provider';
 import type { Contextor } from './contextor';
+import { GitContainerProvider } from './providers/git-container-provider';
 import { VscodeSessionProvider } from './providers/vscode-session-provider';
 
 /** Provider constructor type */
@@ -8,6 +9,7 @@ type ProviderConstructor = new (contextor: Contextor) => ContextProvider;
 /** Registry of built-in providers */
 const builtInProviders: Map<string, ProviderConstructor> = new Map([
     ['vscode-session', VscodeSessionProvider],
+    ['git-container', GitContainerProvider],
 ]);
 
 /**
