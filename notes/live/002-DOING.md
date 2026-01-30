@@ -1,3 +1,23 @@
+## DOING: git-storage addressing system
+- when specifying context, it isnatural that must of the data is constant
+- example, the git repo identity
+- example, the vscode workspace identity
+- we need to create an addressing system on git-storage
+- wen I have a peice of data that I think is stable, 
+- I will storage on git-storage
+- but, I want it to ve stable in the sense of path
+- I mean, I can add and address to any data as if it is a file on the file system
+- but instead of copying the data from a file, I give the content on runtime
+- niiice... this path, can be constructed using a hash from selected data
+- for instance, a repo indentity, a vscode workspace identity
+-- what it is identity?
+- a data blob containing stuff we think should not change much...
+- the point is, the system should find, given a descriptor, which file in git-storage I am talking about...
+- and commit on top of that the new version
+- git handle dedup and compression by default, we just need to make the assigment/addressing system
+- TODO/ rename git-storage to git-vault
+
+
 ## DOING: contextor
 - contextor should provide context sumarization
 - I mean, once it returns, we can use contextor to produce an attachment summary

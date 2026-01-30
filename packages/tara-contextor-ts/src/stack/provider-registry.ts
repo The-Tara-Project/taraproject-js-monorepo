@@ -8,8 +8,8 @@ type ProviderConstructor = new (contextor: Contextor) => ContextProvider;
 
 /** Registry of built-in providers */
 const builtInProviders: Map<string, ProviderConstructor> = new Map([
-    ['vscode-session', VscodeSessionProvider],
-    ['git-container', GitContainerProvider],
+    ['vscode-session', VscodeSessionProvider as ProviderConstructor],
+    ['git-container', GitContainerProvider as ProviderConstructor],
 ]);
 
 /**

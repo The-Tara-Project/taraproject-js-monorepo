@@ -29,6 +29,9 @@ export type {
 // Home handler (primary way to manage paths - use TaraStack.global.home or SettingsManager + HomeManager)
 // See HomeManager class for path resolution and directory management
 
+// Git operations
+export { GitHandler } from './base/git-handler';
+
 // Record utilities
 export { RecordHandler } from './base/record-handler';
 
