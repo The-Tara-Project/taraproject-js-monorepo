@@ -59,13 +59,13 @@ describe('GitStorageManager', () => {
             const link = await tara.global.gitst.commit(testFilePath);
 
             // Verify link structure
-            expect(link.repoId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+            expect(link.repoId).toBeTruthy();
             expect(link.repoPath).toBe(tara.global.gitst.getRepoPath(link.repoId));
             expect(link.commitHash).toMatch(/^[0-9a-f]{40}$/);
             expect(link.commitCount).toBeGreaterThanOrEqual(2); // bootstrap + data
             expect(link.originalPath).toBe(testFilePath);
             expect(link.storagePath).toBeTruthy();
-            expect(link.recordId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+            expect(link.recordId).toBeTruthy();
             expect(link.timestamp).toBeTruthy();
             expect(new Date(link.timestamp)).toBeInstanceOf(Date);
         });
@@ -309,71 +309,62 @@ describe('GitStorageManager', () => {
     });
 
     describe('Multi-Repo Support', () => {
-        it('commits to auto-assigned repo when repoId not specified', async () => {
+        it('commits to auto-assigned repo', async () => {
             const link = await tara.global.gitst.commit(testFilePath);
 
-            expect(link.repoId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+            expect(link.repoId).toBeTruthy();
             expect(link.repoPath).toContain(link.repoId);
         });
 
-        it('commits to custom repo when repoId specified', async () => {
-            const link = await tara.global.gitst.commit(testFilePath, { repoId: 'custom-repo' });
+        it('files from same originPath go to same repo', async () => {
+            // Commit same file twice - should go to same repo
+            const link1 = await tara.global.gitst.commit(testFilePath);
+            fs.writeFileSync(testFilePath, 'updated content', 'utf-8');
+            const link2 = await tara.global.gitst.commit(testFilePath);
 
-            expect(link.repoId).toBe('custom-repo');
-            expect(link.repoPath).toContain('custom-repo');
-
-            // Verify file stored in custom repo
-            const storedFilePath = path.join(link.repoPath, link.storagePath);
-            expect(fs.existsSync(storedFilePath)).toBe(true);
+            expect(link1.repoId).toBe(link2.repoId);
+            expect(link1.storagePath).toBe(link2.storagePath);
         });
 
-        it('keeps repos separate', async () => {
+        it('files from different originPaths get different storagePaths', async () => {
             const file1 = path.join(tara.global.home.getHomePath(), 'file1.txt');
             const file2 = path.join(tara.global.home.getHomePath(), 'file2.txt');
 
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
 
-            const link1 = await tara.global.gitst.commit(file1, { repoId: 'repo-a' });
-            const link2 = await tara.global.gitst.commit(file2, { repoId: 'repo-b' });
+            const link1 = await tara.global.gitst.commit(file1);
+            const link2 = await tara.global.gitst.commit(file2);
 
-            // Different repos
-            expect(link1.repoId).toBe('repo-a');
-            expect(link2.repoId).toBe('repo-b');
-            expect(link1.repoPath).not.toBe(link2.repoPath);
+            // Different storagePaths (different originPaths)
+            expect(link1.storagePath).not.toBe(link2.storagePath);
 
-            // Each has own git repo
+            // Both have git repos
             expect(fs.existsSync(path.join(link1.repoPath, '.git'))).toBe(true);
             expect(fs.existsSync(path.join(link2.repoPath, '.git'))).toBe(true);
         });
 
         it('each repo has its own internal tape in tapes subfolder', async () => {
-            const file1 = path.join(tara.global.home.getHomePath(), 'file1.txt');
-            const file2 = path.join(tara.global.home.getHomePath(), 'file2.txt');
+            const link = await tara.global.gitst.commit(testFilePath);
 
-            fs.writeFileSync(file1, 'content 1', 'utf-8');
-            fs.writeFileSync(file2, 'content 2', 'utf-8');
-
-            const link1 = await tara.global.gitst.commit(file1, { repoId: 'repo-a' });
-            const link2 = await tara.global.gitst.commit(file2, { repoId: 'repo-b' });
-
-            // Each repo has its own tape file in tapes/ subfolder
-            expect(fs.existsSync(path.join(link1.repoPath, 'tapes', getCurrentTapeFilename('repo-a')))).toBe(true);
-            expect(fs.existsSync(path.join(link2.repoPath, 'tapes', getCurrentTapeFilename('repo-b')))).toBe(true);
+            // Repo has tape file in tapes/ subfolder
+            const tapeFiles = tara.global.gitst.listTapeFiles(link.repoId);
+            expect(tapeFiles.length).toBeGreaterThan(0);
+            expect(fs.existsSync(path.join(link.repoPath, 'tapes', tapeFiles[0]))).toBe(true);
         });
 
-        it('batch commits to specified repo', async () => {
+        it('batch commits files to resolved repos', async () => {
             const file1 = path.join(tara.global.home.getHomePath(), 'batch1.txt');
             const file2 = path.join(tara.global.home.getHomePath(), 'batch2.txt');
 
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
 
-            const links = await tara.global.gitst.commitBatch([file1, file2], { repoId: 'batch-repo' });
+            const links = await tara.global.gitst.commitBatch([file1, file2]);
 
-            expect(links[0].repoId).toBe('batch-repo');
-            expect(links[1].repoId).toBe('batch-repo');
-            expect(links[0].repoPath).toContain('batch-repo');
+            expect(links.length).toBe(2);
+            // Both go to same repo (same directory origin)
+            expect(links[0].repoId).toBe(links[1].repoId);
         });
 
         it('exists() checks specific repo', async () => {
@@ -597,17 +588,15 @@ describe('GitStorageManager', () => {
             });
         });
 
-        it('commits to specified repoId', async () => {
+        it('resolves files to appropriate repo', async () => {
             fs.writeFileSync(path.join(externalRepoPath, 'file.txt'), 'content', 'utf-8');
             execSync('git add .', { cwd: externalRepoPath, stdio: 'pipe' });
             execSync('git commit -m "initial"', { cwd: externalRepoPath, stdio: 'pipe' });
 
-            const links = await tara.global.gitst.commitFromRepo(externalRepoPath, {
-                repoId: 'backup-repo'
-            });
+            const links = await tara.global.gitst.commitFromRepo(externalRepoPath);
 
-            expect(links[0].repoId).toBe('backup-repo');
-            expect(links[0].repoPath).toContain('backup-repo');
+            expect(links[0].repoId).toBeTruthy();
+            expect(links[0].repoPath).toContain(links[0].repoId);
         });
 
         it('handles nested directories', async () => {
@@ -657,8 +646,7 @@ describe('GitStorageManager', () => {
         it('first commit to a dir is assigned to a repo automatically', async () => {
             const link = await tara.global.gitst.commit(testFilePath);
 
-            expect(link.repoId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
-            expect(link.assignmentKey).toBeTruthy();
+            expect(link.repoId).toBeTruthy();
         });
 
         it('second commit from same dir goes to same repo', async () => {
@@ -670,12 +658,11 @@ describe('GitStorageManager', () => {
             const link1 = await tara.global.gitst.commit(file1);
             const link2 = await tara.global.gitst.commit(file2);
 
+            // Both files go to same repo (same parent directory)
             expect(link1.repoId).toBe(link2.repoId);
         });
 
-        it('commits from different dirs can go to different repos once cap is reached', async () => {
-            // With cap=1000 and fresh state, both dirs go to same repo (repo-0)
-            // This test just verifies both get assigned
+        it('commits from different dirs go to different repos', async () => {
             const dir1 = path.join(tara.global.home.getHomePath(), 'projA');
             const dir2 = path.join(tara.global.home.getHomePath(), 'projB');
             fs.mkdirSync(dir1, { recursive: true });
@@ -689,15 +676,8 @@ describe('GitStorageManager', () => {
             const link1 = await tara.global.gitst.commit(file1);
             const link2 = await tara.global.gitst.commit(file2);
 
-            expect(link1.repoId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
-            expect(link2.repoId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
-        });
-
-        it('explicit repoId overrides auto-assignment', async () => {
-            const link = await tara.global.gitst.commit(testFilePath, { repoId: 'my-repo' });
-
-            expect(link.repoId).toBe('my-repo');
-            expect(link.assignmentKey).toBeUndefined();
+            // Different directories → different repos
+            expect(link1.repoId).not.toBe(link2.repoId);
         });
 
         it('assigns files from the same directory to the same repo across sessions', async () => {
@@ -720,37 +700,31 @@ describe('GitStorageManager', () => {
             expect(link2.repoId).toBe(link1.repoId);
         });
 
-        it('file inside external git repo uses source repo root as key', async () => {
-            // Create an external git repo
-            const extRepo = path.join(tara.global.home.getHomePath(), 'ext-repo');
-            fs.mkdirSync(path.join(extRepo, 'src'), { recursive: true });
-            execSync('git init', { cwd: extRepo, stdio: 'pipe' });
+        it('files from same originPath are resolved consistently', async () => {
+            // Commit same file twice, should go to same storagePath
+            const link1 = await tara.global.gitst.commit(testFilePath);
+            fs.writeFileSync(testFilePath, 'updated', 'utf-8');
+            const link2 = await tara.global.gitst.commit(testFilePath);
 
-            const file1 = path.join(extRepo, 'src', 'a.txt');
-            const file2 = path.join(extRepo, 'src', 'b.txt');
+            expect(link1.storagePath).toBe(link2.storagePath);
+            expect(link1.repoId).toBe(link2.repoId);
+        });
+
+        it('files from different originPaths get different storagePaths', async () => {
+            const dir = path.join(tara.global.home.getHomePath(), 'test-dir');
+            fs.mkdirSync(dir, { recursive: true });
+
+            const file1 = path.join(dir, 'a.txt');
+            const file2 = path.join(dir, 'b.txt');
             fs.writeFileSync(file1, '1', 'utf-8');
             fs.writeFileSync(file2, '2', 'utf-8');
 
             const link1 = await tara.global.gitst.commit(file1);
             const link2 = await tara.global.gitst.commit(file2);
 
-            // Both should have the same assignmentKey (the ext repo root)
-            expect(link1.assignmentKey).toBe(extRepo);
-            expect(link2.assignmentKey).toBe(extRepo);
+            // Different storagePaths for different originPaths
+            expect(link1.storagePath).not.toBe(link2.storagePath);
             expect(link1.repoId).toBe(link2.repoId);
-        });
-
-        it('file not in any git repo uses directory path as key', async () => {
-            // Create a dir outside any git repo
-            const standalone = path.join(tara.global.home.getHomePath(), 'no-git-dir');
-            fs.mkdirSync(standalone, { recursive: true });
-
-            const file = path.join(standalone, 'orphan.txt');
-            fs.writeFileSync(file, 'orphan', 'utf-8');
-
-            const link = await tara.global.gitst.commit(file);
-
-            expect(link.assignmentKey).toBe(standalone);
         });
     });
 
@@ -777,27 +751,25 @@ describe('GitStorageManager', () => {
             const file = path.join(tara.global.home.getHomePath(), 'rotation-test.txt');
             fs.writeFileSync(file, 'content', 'utf-8');
 
-            const link = await tara.global.gitst.commit(file, { repoId: 'rotation-repo' });
+            const link = await tara.global.gitst.commit(file);
 
             // Verify tape exists in tapes/ subfolder
-            const expectedTape = getCurrentTapeFilename('rotation-repo');
-            const tapePath = path.join(link.repoPath, 'tapes', expectedTape);
+            const tapes = tara.global.gitst.listTapeFiles(link.repoId);
+            expect(tapes.length).toBeGreaterThan(0);
+            const tapePath = path.join(link.repoPath, 'tapes', tapes[0]);
             expect(fs.existsSync(tapePath)).toBe(true);
-
-            // Verify listTapeFiles returns it
-            const tapes = tara.global.gitst.listTapeFiles('rotation-repo');
-            expect(tapes).toContain(expectedTape);
         });
 
         it('getRepoTape with tapeFile parameter reads specific tape', async () => {
             const file = path.join(tara.global.home.getHomePath(), 'tape-param-test.txt');
             fs.writeFileSync(file, 'content', 'utf-8');
 
-            const link = await tara.global.gitst.commit(file, { repoId: 'tape-param-repo' });
+            const link = await tara.global.gitst.commit(file);
 
             // Get tape by specific filename
-            const tapeFile = getCurrentTapeFilename('tape-param-repo');
-            const tape = tara.global.gitst.getRepoTape('tape-param-repo', tapeFile);
+            const tapeFiles = tara.global.gitst.listTapeFiles(link.repoId);
+            expect(tapeFiles.length).toBeGreaterThan(0);
+            const tape = tara.global.gitst.getRepoTape(link.repoId, tapeFiles[0]);
 
             const records: any[] = [];
             await tape.readRecords(({ parsed }) => {

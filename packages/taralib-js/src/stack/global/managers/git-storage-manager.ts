@@ -7,7 +7,7 @@ import { RecordHandler } from '../../../base/record-handler';
 import { TapeHandler } from '../../../base/tape-handler';
 import { YYYYMM_prefix } from '../../../base/utils';
 import type { TaraStack } from '../../tara-stack';
-import { GitStAssignmentManager, type GitStAssignmentLink } from './git-st-assignment-manager';
+import { GitStResolver, type DescriptorPair, type ResolveResult } from './git-st-resolver';
 
 export interface TaraGitSTLink {
     repoId: string;
@@ -21,7 +21,12 @@ export interface TaraGitSTLink {
     recordHash?: string;
     timestamp: string;
     message?: string;
-    assignmentKey?: string;
+}
+
+export interface GitStCommitOptions {
+    message?: string;
+    metadata?: Record<string, unknown>;
+    descriptors?: DescriptorPair[];
 }
 
 /**
@@ -33,29 +38,10 @@ export interface TaraGitSTLink {
  */
 export class GitStorageManager {
     private gitHandlers: Map<string, GitHandler> = new Map();
-    private assignment: GitStAssignmentManager;
+    private resolver: GitStResolver;
 
     constructor(private context: TaraStack) {
-        // Bootstrap pattern: minimal initialization
-        this.assignment = new GitStAssignmentManager(context);
-    }
-
-    /**
-     * Map file path to storage location.
-     * /Users/foo/bar/file.txt -> <sha256-of-dir>/file.txt
-     * @private
-     */
-    private mapPathToStorage(filePath: string): string {
-        const absolutePath = path.resolve(filePath);
-        const dirPath = path.dirname(absolutePath);
-        const fileName = path.basename(absolutePath);
-
-        // Hash the directory path
-        const hashSum = crypto.createHash('sha256');
-        hashSum.update(dirPath);
-        const dirHash = hashSum.digest('hex');
-
-        return path.join(dirHash, fileName);
+        this.resolver = new GitStResolver(context);
     }
 
     // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
@@ -98,13 +84,12 @@ export class GitStorageManager {
         }
     }
 
-    // MARK: ...copyFileToStorage
+    // MARK: ...copyFileToStoragePath
     /**
-     * Copy file to storage location.
+     * Copy file to a specific storage path.
      * @private
      */
-    private copyFileToStorage(originalPath: string, repoId: string): string {
-        const storagePath = this.mapPathToStorage(originalPath);
+    private copyFileToStoragePath(originalPath: string, repoId: string, storagePath: string): void {
         const fullStoragePath = path.join(this.getRepoPath(repoId), storagePath);
         const storageDir = path.dirname(fullStoragePath);
 
@@ -115,23 +100,17 @@ export class GitStorageManager {
 
         // Copy file
         fs.copyFileSync(originalPath, fullStoragePath);
-
-        return storagePath;
     }
 
     // MARK: ...commit
     /**
      * Commit a file to git-storage.
      *
-     * @param filePath - Absolute path to file
-     * @param options - Optional message, metadata, and repoId
+     * @param filePath - Absolute path to file (also used as originPath for resolution)
+     * @param options - Optional message, metadata, and descriptors
      * @returns TaraGitSTLink with all retrieval information
      */
-    async commit(filePath: string, options?: {
-        message?: string;
-        metadata?: Record<string, unknown>;
-        repoId?: string;
-    }): Promise<TaraGitSTLink> {
+    async commit(filePath: string, options?: GitStCommitOptions): Promise<TaraGitSTLink> {
         const links = await this.commitBatch([filePath], options);
         return links[0];
     }
@@ -140,17 +119,13 @@ export class GitStorageManager {
     // MARK: ...commitBatch
     /**
      * Commit multiple files to git-storage in a single operation.
-     * Handles files from different directories/repos by creating separate commits per repo.
+     * Each file is resolved independently using its path as originPath.
      *
      * @param filePaths - Array of absolute paths to files
-     * @param options - Optional message, metadata, and repoId (applied to all files)
+     * @param options - Optional message, metadata, and descriptors (applied to all files)
      * @returns Array of TaraGitSTLink objects
      */
-    async commitBatch(filePaths: string[], options?: {
-        message?: string;
-        metadata?: Record<string, unknown>;
-        repoId?: string;
-    }): Promise<TaraGitSTLink[]> {
+    async commitBatch(filePaths: string[], options?: GitStCommitOptions): Promise<TaraGitSTLink[]> {
         if (!Array.isArray(filePaths) || filePaths.length === 0) {
             throw new Error('filePaths must be a non-empty array');
         }
@@ -168,27 +143,26 @@ export class GitStorageManager {
             absolutePaths.push(absolutePath);
         }
 
-        // Get repo groups - either explicit repoId or auto-assignment
-        let repoGroups: Map<string, GitStAssignmentLink[]>;
+        // Resolve each file and group by repoId
+        type ResolveResultWithDescriptors = ResolveResult & { fullDescriptors: DescriptorPair[] };
+        const repoGroups = new Map<string, Array<{ filePath: string; resolution: ResolveResultWithDescriptors }>>();
 
-        if (options?.repoId) {
-            // Explicit repoId: all files go to that repo, no assignmentKey
-            const links = absolutePaths.map(filePath => ({
-                repoId: options.repoId!,
-                repoPath: this.getRepoPath(options.repoId!),
-                filePath,
-            }));
-            repoGroups = new Map([[options.repoId, links]]);
-        } else {
-            // Auto-assignment: resolve and group by repo
-            repoGroups = await this.assignment.resolveAssignmentBatch(absolutePaths);
+        for (const filePath of absolutePaths) {
+            const resolution = await this.resolver.resolve({
+                originPath: filePath,
+                descriptors: options?.descriptors,
+            });
+
+            const group = repoGroups.get(resolution.repoId) || [];
+            group.push({ filePath, resolution });
+            repoGroups.set(resolution.repoId, group);
         }
 
         // Process each repo group
         const allLinks: TaraGitSTLink[] = [];
 
-        for (const [repoId, assignments] of repoGroups) {
-            const links = await this.commitToRepo(repoId, assignments, options);
+        for (const [repoId, files] of repoGroups) {
+            const links = await this.commitToRepo(repoId, files, options);
             allLinks.push(...links);
         }
 
@@ -202,32 +176,41 @@ export class GitStorageManager {
      */
     private async commitToRepo(
         repoId: string,
-        assignments: GitStAssignmentLink[],
-        options?: {
-            message?: string;
-            metadata?: Record<string, unknown>;
-        }
+        files: Array<{ filePath: string; resolution: ResolveResult & { fullDescriptors: DescriptorPair[] } }>,
+        options?: GitStCommitOptions
     ): Promise<TaraGitSTLink[]> {
         // Ensure initialized
         this.instantiate(repoId);
 
         const timestamp = new Date().toISOString();
         const commitMessage = options?.message ||
-            (assignments.length === 1
-                ? `gitst: ${path.basename(assignments[0].filePath)}`
-                : `gitst: batch commit (${assignments.length} files)`);
+            (files.length === 1
+                ? `gitst: ${path.basename(files[0].filePath)}`
+                : `gitst: batch commit (${files.length} files)`);
+
+        // Write descriptor records for new resolutions (after repo is instantiated)
+        for (const { resolution } of files) {
+            if (resolution.isNew) {
+                await this.resolver.writeDescriptorRecord({
+                    descriptors: resolution.fullDescriptors,
+                    storagePath: resolution.storagePath,
+                    repoId,
+                    timestamp,
+                });
+            }
+        }
 
         // Process all files
         const fileData: Array<{
-            assignment: GitStAssignmentLink;
-            storagePath: string;
+            filePath: string;
+            resolution: ResolveResult;
             contentHash: string;
         }> = [];
 
-        for (const assignment of assignments) {
-            const contentHash = this.calculateFileHash(assignment.filePath);
-            const storagePath = this.copyFileToStorage(assignment.filePath, repoId);
-            fileData.push({ assignment, storagePath, contentHash });
+        for (const { filePath, resolution } of files) {
+            const contentHash = this.calculateFileHash(filePath);
+            this.copyFileToStoragePath(filePath, repoId, resolution.storagePath);
+            fileData.push({ filePath, resolution, contentHash });
         }
 
         // Create links and records for all files
@@ -235,16 +218,15 @@ export class GitStorageManager {
         const records: RecordHandler[] = [];
         const storagePaths: string[] = [];
 
-        for (const { assignment, storagePath, contentHash } of fileData) {
+        for (const { filePath, resolution, contentHash } of fileData) {
             const linkData: Omit<TaraGitSTLink, 'recordId' | 'recordHash' | 'commitHash' | 'commitCount'> = {
                 repoId,
                 repoPath: this.getRepoPath(repoId),
-                originalPath: assignment.filePath,
-                storagePath,
+                originalPath: filePath,
+                storagePath: resolution.storagePath,
                 contentHash,
                 timestamp,
                 message: commitMessage,
-                ...(assignment.assignmentKey ? { assignmentKey: assignment.assignmentKey } : {}),
             };
 
             // Create tape record
@@ -255,7 +237,7 @@ export class GitStorageManager {
             });
 
             records.push(record);
-            storagePaths.push(storagePath);
+            storagePaths.push(resolution.storagePath);
 
             // Build partial link (commit info filled after git commit)
             links.push({
@@ -271,12 +253,16 @@ export class GitStorageManager {
         const tape = this.getRepoTape(repoId);
         tape.appendRecordBatch(records);
 
-        // Stage all data files + tape file
+        // Stage all data files + tape file + descriptor tape
         const handler = this.getGitHandler(repoId);
         const tapePath = `tapes/${this.buildCurrentTapeName(repoId)}`;
-        const allPaths = [...storagePaths, tapePath];
+        const descriptorTapePath = `descriptors/${this.buildCurrentTapeName(repoId)}`;
+        const allPaths = [...storagePaths, tapePath, descriptorTapePath];
         for (const p of allPaths) {
-            handler.execCmdSync(`add "${p.replace(/"/g, '\\"')}"`);
+            const fullPath = path.join(this.getRepoPath(repoId), p);
+            if (fs.existsSync(fullPath)) {
+                handler.execCmdSync(`add "${p.replace(/"/g, '\\"')}"`);
+            }
         }
 
         // Single commit
@@ -301,13 +287,13 @@ export class GitStorageManager {
      * Uses `git ls-files` to get the list of tracked/non-ignored files.
      *
      * @param externalRepoPath - Path to external git repository
-     * @param options - Optional message, metadata, repoId, and filters
+     * @param options - Optional message, metadata, descriptors, and filters
      * @returns Array of TaraGitSTLink objects
      */
     async commitFromRepo(externalRepoPath: string, options?: {
         message?: string;
         metadata?: Record<string, unknown>;
-        repoId?: string;
+        descriptors?: DescriptorPair[];
         maxFileSizeBytes?: number;
     }): Promise<TaraGitSTLink[]> {
         // Validate repo exists
@@ -367,7 +353,7 @@ export class GitStorageManager {
                 ...options?.metadata,
                 sourceRepo: repoAbsPath
             },
-            repoId: options?.repoId
+            descriptors: options?.descriptors
         });
     }
 
