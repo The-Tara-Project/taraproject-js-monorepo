@@ -195,13 +195,11 @@ describe('GitStorageManager', () => {
         });
 
         it('tape records are queryable via TapeHandler', async () => {
-            console.log('TapeHandler test started');
             const file1 = tara.global.home.getHomePath('file1.txt');
             const file2 = tara.global.home.getHomePath('file2.txt');
             
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
-            console.log('files created');
 
             const link1 = await tara.global.gitst.commit(file1, {
                 metadata: { tag: 'first' }
@@ -209,11 +207,9 @@ describe('GitStorageManager', () => {
             const link2 = await tara.global.gitst.commit(file2, {
                 metadata: { tag: 'second' }
             });
-            console.log('files committed');
 
             const tapeHandler = tara.global.gitst.getRepoTape(link1.repoId);
             const records: any[] = [];
-            console.log('got tape handler, starting read');
 
             await tapeHandler.readRecords(({ parsed }) => {
                 if (parsed.type === 'taralib/git-storage-commit') {
