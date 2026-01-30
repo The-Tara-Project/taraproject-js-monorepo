@@ -1,9 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import * as os from 'os';
-import { execSync } from 'child_process';
-import { TaraStack, RecordHandler, TaraGitSTLink } from '@jose_pereiro/taralib-js';
+import { TaraStack, RecordHandler } from '@jose_pereiro/taralib-js';
+import { Contextor, ContextRequestResult } from '@jose_pereiro/tara-contextor-ts';
 
 const APP_NAME = 'tara-puller';
 const CONFIRM_PREFIX = '...';
@@ -73,14 +72,10 @@ function loadRandomQuestion(tara: TaraStack): TaraQuestion | null {
 }
 
 /**
- * Get the current tape ID based on the current date (YYYYMM-tara-puller)
+ * Get the tape ID (monthly prefixing is handled by the tape manager)
  */
 function currentTapeId(): string {
-    // TODO: use taralib-ts utils.ts YYYYMM_prefix
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    return `${year}${month}-tara-puller`;
+    return APP_NAME;
 }
 
 interface PullerState {
@@ -88,50 +83,15 @@ interface PullerState {
     isWindowFocused: boolean;
     intervalId: NodeJS.Timeout | null;
     retryTimeoutId: NodeJS.Timeout | null;
-    tara: TaraStack | null; // working tara
+    tara: TaraStack | null;
     user_tara: TaraStack | null;
-    dev_tara: TaraStack | null; // tara for dev mode
+    dev_tara: TaraStack | null;
+    contextor: Contextor | null;
     minIntervalMs: number;
     checkIntervalMs: number;
     enabled: boolean;
-    gitStorageEnabled: boolean;
-    gitStorageBackupMode: 'activeOnly' | 'openFiles' | 'pinnedFiles';
-    gitStorageMaxFileSizeKB: number;
     testMode: boolean;
     isDialogShowing: boolean;
-}
-
-interface GitInfo {
-    isRepo: boolean;
-    repoRoot?: string;
-    branch?: string;
-    commitHash?: string;
-    commitMessage?: string;
-    remoteUrl?: string;
-    isDirty?: boolean;
-}
-
-interface FileContext {
-    path: string;
-    relativePath?: string;
-    fileName: string;
-    languageId?: string;
-    isActive: boolean;
-    isPinned: boolean;
-    git?: GitInfo;
-}
-
-interface WorkspaceContext {
-    name?: string;
-    folders: string[];
-}
-
-interface PullContext {
-    activeFile?: FileContext;
-    openFiles: FileContext[];
-    pinnedFiles: FileContext[];
-    workspace: WorkspaceContext;
-    timestamp: string;
 }
 
 const state: PullerState = {
@@ -142,177 +102,27 @@ const state: PullerState = {
     tara: null,
     user_tara: null,
     dev_tara: null,
+    contextor: null,
     minIntervalMs: 60 * 1000,
     checkIntervalMs: 10 * 1000,
     enabled: true,
-    gitStorageEnabled: true,
-    gitStorageBackupMode: 'activeOnly',
-    gitStorageMaxFileSizeKB: 1024,
     testMode: false,
     isDialogShowing: false,
 };
 
-// Cache git info per repo root to avoid repeated git calls
-const gitCache: Map<string, { info: GitInfo; timestamp: number }> = new Map();
-const GIT_CACHE_TTL = 5000; // 5 seconds
-const GIT_CACHE_MAX_SIZE = 50;
-
 /**
- * Prune git cache if it exceeds max size (simple LRU eviction)
+ * Collect context using Contextor
  */
-function pruneGitCache(): void {
-    if (gitCache.size > GIT_CACHE_MAX_SIZE) {
-        const entries = Array.from(gitCache.entries())
-            .sort((a, b) => a[1].timestamp - b[1].timestamp);
-        const toRemove = entries.slice(0, gitCache.size - GIT_CACHE_MAX_SIZE);
-        for (const [key] of toRemove) {
-            gitCache.delete(key);
-        }
+async function collectContext(): Promise<ContextRequestResult[]> {
+    if (!state.contextor) {
+        return [];
     }
-}
-
-/**
- * Run a git command in a directory
- */
-function runGitCommand(cwd: string, args: string): string | null {
-    try {
-        return execSync(`git ${args}`, {
-            cwd,
-            encoding: 'utf-8',
-            stdio: ['pipe', 'pipe', 'pipe']
-        }).trim();
-    } catch {
-        return null;
-    }
-}
-
-/**
- * Get git info for a file path
- */
-function getGitInfo(filePath: string): GitInfo {
-    const dir = path.dirname(filePath);
-
-    // Check if inside a git repo
-    const repoRoot = runGitCommand(dir, 'rev-parse --show-toplevel');
-    if (!repoRoot) {
-        return { isRepo: false };
-    }
-
-    // Check cache
-    const cached = gitCache.get(repoRoot);
-    if (cached && Date.now() - cached.timestamp < GIT_CACHE_TTL) {
-        return cached.info;
-    }
-
-    // Get git info
-    const branch = runGitCommand(repoRoot, 'rev-parse --abbrev-ref HEAD');
-    const commitHash = runGitCommand(repoRoot, 'rev-parse HEAD');
-    const commitMessage = runGitCommand(repoRoot, 'log -1 --pretty=%s');
-    const remoteUrl = runGitCommand(repoRoot, 'config --get remote.origin.url');
-    const status = runGitCommand(repoRoot, 'status --porcelain');
-    const isDirty = status !== null && status.length > 0;
-
-    const info: GitInfo = {
-        isRepo: true,
-        repoRoot,
-        branch: branch ?? undefined,
-        commitHash: commitHash ?? undefined,
-        commitMessage: commitMessage ?? undefined,
-        remoteUrl: remoteUrl ?? undefined,
-        isDirty,
-    };
-
-    // Cache the result
-    gitCache.set(repoRoot, { info, timestamp: Date.now() });
-    pruneGitCache();
-
-    return info;
-}
-
-/**
- * Get file context from a tab
- */
-function getFileContextFromTab(tab: vscode.Tab, activeUri?: vscode.Uri): FileContext | null {
-    // Check if tab has a URI (text document)
-    const input = tab.input;
-    if (!input || typeof input !== 'object' || !('uri' in input)) {
-        return null;
-    }
-
-    const uri = (input as { uri: vscode.Uri }).uri;
-    if (uri.scheme !== 'file') {
-        return null;
-    }
-
-    const filePath = uri.fsPath;
-    const isActive = activeUri?.fsPath === filePath;
-    const isPinned = tab.isPinned;
-
-    // Get workspace folder for relative path
-    const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
-    const relativePath = workspaceFolder
-        ? path.relative(workspaceFolder.uri.fsPath, filePath)
-        : undefined;
-
-    // Get language ID from active document if available
-    let languageId: string | undefined;
-    if (isActive && vscode.window.activeTextEditor) {
-        languageId = vscode.window.activeTextEditor.document.languageId;
-    }
-
-    return {
-        path: filePath,
-        relativePath,
-        fileName: path.basename(filePath),
-        languageId,
-        isActive,
-        isPinned,
-        git: getGitInfo(filePath),
-    };
-}
-
-/**
- * Gather all context about the current VS Code state
- */
-function gatherContext(): PullContext {
-    const context: PullContext = {
-        openFiles: [],
-        pinnedFiles: [],
-        workspace: {
-            name: vscode.workspace.name,
-            folders: vscode.workspace.workspaceFolders?.map((f: vscode.WorkspaceFolder) => f.uri.fsPath) ?? [],
-        },
-        timestamp: new Date().toISOString(),
-    };
-
-    // Get active editor URI
-    const activeUri = vscode.window.activeTextEditor?.document.uri;
-
-    // Track seen files to avoid duplicates
-    const seenPaths = new Set<string>();
-
-    // Iterate through all tab groups
-    for (const tabGroup of vscode.window.tabGroups.all) {
-        for (const tab of tabGroup.tabs) {
-            const fileContext = getFileContextFromTab(tab, activeUri);
-            if (!fileContext || seenPaths.has(fileContext.path)) {
-                continue;
-            }
-            seenPaths.add(fileContext.path);
-
-            context.openFiles.push(fileContext);
-
-            if (fileContext.isPinned) {
-                context.pinnedFiles.push(fileContext);
-            }
-
-            if (fileContext.isActive) {
-                context.activeFile = fileContext;
-            }
-        }
-    }
-
-    return context;
+    
+    return state.contextor.collect([{
+        provider: 'vscode-session',
+        items: ['opened-files-paths', 'focused-file-path', 'workspace-folders-paths'],
+        options: { vscode }
+    }]);
 }
 
 /**
@@ -338,9 +148,6 @@ function loadSettings(): void {
     state.minIntervalMs = getConfig('minInterval', 60) * 1000;
     state.checkIntervalMs = getConfig('checkInterval', 10) * 1000;
     state.enabled = getConfig('enabled', true);
-    state.gitStorageEnabled = getConfig('gitStorage.enabled', true);
-    state.gitStorageBackupMode = getConfig('gitStorage.backupMode', 'activeOnly');
-    state.gitStorageMaxFileSizeKB = getConfig('gitStorage.maxFileSizeKB', 1024);
     state.testMode = getConfig('testMode', false);
 
     // Configuration validation and enforcement
@@ -358,7 +165,7 @@ function loadSettings(): void {
         state.checkIntervalMs = newCheckInterval;
     }
     if (state.checkIntervalMs < 1000) {
-        state.checkIntervalMs = 1000; // Minimum 1 second check interval
+        state.checkIntervalMs = 1000;
     }
 }
 
@@ -380,6 +187,9 @@ function initTaraStack(): TaraStack {
 
         state.tara = state.testMode ? state.dev_tara : state.user_tara;
         state.tara.global.home.instantiate();
+        
+        // Initialize Contextor with the TaraStack
+        state.contextor = new Contextor(state.tara);
     }
     return state.tara;
 }
@@ -389,6 +199,7 @@ function initTaraStack(): TaraStack {
  */
 function reinitTaraStack(): void {
     state.tara = null;
+    state.contextor = null;
     initTaraStack();
 }
 
@@ -431,65 +242,12 @@ function isEnabled(): boolean {
 }
 
 /**
- * Backup files to git-storage and return links
- */
-async function backupFilesToGitStorage(
-    context: PullContext,
-    recordId: string
-): Promise<{ links: TaraGitSTLink[]; commitHash?: string }> {
-    if (!state.gitStorageEnabled) {
-        return { links: [] };
-    }
-
-    const tara = initTaraStack();
-    const maxSizeBytes = state.gitStorageMaxFileSizeKB * 1024;
-
-    // Determine files to backup based on mode
-    let filesToBackup: FileContext[] = [];
-    switch (state.gitStorageBackupMode) {
-        case 'activeOnly':
-            if (context.activeFile) filesToBackup = [context.activeFile];
-            break;
-        case 'openFiles':
-            filesToBackup = context.openFiles;
-            break;
-        case 'pinnedFiles':
-            filesToBackup = context.pinnedFiles;
-            break;
-    }
-
-    // Filter by size and existence
-    const validFiles: string[] = [];
-    for (const file of filesToBackup) {
-        try {
-            const stats = fs.statSync(file.path);
-            if (stats.size <= maxSizeBytes) {
-                validFiles.push(file.path);
-            }
-        } catch { /* skip */ }
-    }
-
-    if (validFiles.length === 0) return { links: [] };
-
-    try {
-        const links = tara.global.gitst.commitBatch(validFiles, {
-            message: `tara-puller: context backup (${validFiles.length} files)`,
-            metadata: { pullerRecordId: recordId, timestamp: context.timestamp }
-        });
-        return { links, commitHash: links[0]?.commitHash };
-    } catch (error) {
-        console.error('Git-storage backup failed:', error);
-        return { links: [] };
-    }
-}
-
-/**
  * Record a pull entry to the tape with full context
  */
 async function recordEntry(
     response: string | null,
     dismissed: boolean,
-    context: PullContext
+    contextResults: ContextRequestResult[]
 ): Promise<void> {
     const tape = getTape();
 
@@ -498,36 +256,10 @@ async function recordEntry(
         timestamp: new Date().toISOString(),
         dismissed,
         response: response ?? null,
-        context,
+        contextResults,
     });
 
-    const recordId = record.getId();
     tape.appendRecord(record);
-
-    // Backup to git-storage (async, fire-and-forget)
-    if (state.gitStorageEnabled && !dismissed) {
-        try {
-            const { links, commitHash } = await backupFilesToGitStorage(context, recordId);
-            if (links.length > 0) {
-                const storageRecord = new RecordHandler({
-                    type: 'tara-puller/git-storage-refs',
-                    timestamp: new Date().toISOString(),
-                    linkedRecordId: recordId,
-                    commitHash,
-                    files: links.map(link => ({
-                        originalPath: link.originalPath,
-                        storagePath: link.storagePath,
-                        contentHash: link.contentHash,
-                        recordId: link.recordId,
-                    })),
-                });
-                tape.appendRecord(storageRecord);
-                vscode.window.setStatusBarMessage(`Tara: Backed up ${links.length} file(s)`, 3000);
-            }
-        } catch (error) {
-            console.error(error);
-        }
-    }
 }
 
 function defaultQuestion(): TaraQuestion {
@@ -611,8 +343,8 @@ async function showPullDialog(): Promise<boolean> {
         // Update last prompt time only when we actually show the dialog
         state.lastPromptTime = Date.now();
 
-        // Gather context BEFORE showing dialog (captures state at prompt time)
-        const context = gatherContext();
+        // Collect context BEFORE showing dialog (captures state at prompt time)
+        const contextResults = await collectContext();
 
         const title = state.testMode
             ? `${question.question} (testMode ⚠️)`
@@ -645,14 +377,14 @@ async function showPullDialog(): Promise<boolean> {
         } else if (response === CONFIRM_PREFIX) {
             // User explicitly dismissed by typing just "..."
             clearPendingRetry();
-            await recordEntry(null, true, context);
+            await recordEntry(null, true, contextResults);
             vscode.window.setStatusBarMessage('Tara Puller: Dismissed', 3000);
             vscode.window.showInformationMessage('Tara Puller: Question dismissed');
         } else {
             // User submitted content - strip the CONFIRM_PREFIX suffix
             clearPendingRetry();
             const cleanResponse = response.endsWith(CONFIRM_PREFIX) ? response.slice(0, -CONFIRM_PREFIX.length) : response;
-            await recordEntry(cleanResponse, false, context);
+            await recordEntry(cleanResponse, false, contextResults);
             vscode.window.setStatusBarMessage('Tara Puller: Recorded', 3000);
         }
 
@@ -753,13 +485,6 @@ export function activate(context: vscode.ExtensionContext): void {
         })
     );
 
-    // Clear git cache when workspace folders change
-    context.subscriptions.push(
-        vscode.workspace.onDidChangeWorkspaceFolders(() => {
-            gitCache.clear();
-        })
-    );
-
     // Register command to trigger prompt manually
     context.subscriptions.push(
         vscode.commands.registerCommand('taraPuller.askNow', async () => {
@@ -772,7 +497,6 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('taraPuller.showStatus', () => {
             const timeSinceLastPrompt = Date.now() - state.lastPromptTime;
             const timeUntilNext = Math.max(0, state.minIntervalMs - timeSinceLastPrompt);
-            const ctx = gatherContext();
 
             const testModeStatus = state.testMode
                 ? 'ON (~/.taraproject/dev/tara-puller-test-stack/)'
@@ -784,8 +508,6 @@ export function activate(context: vscode.ExtensionContext): void {
                 `• Window focused: ${state.isWindowFocused}\n` +
                 `• Min interval: ${state.minIntervalMs / 1000}s\n` +
                 `• Time until next prompt: ${Math.ceil(timeUntilNext / 1000)}s\n` +
-                `• Open files: ${ctx.openFiles.length}\n` +
-                `• Pinned files: ${ctx.pinnedFiles.length}\n` +
                 `• Tape: ${currentTapeId()}`
             );
         })

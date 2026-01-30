@@ -57,23 +57,6 @@
                     "default": true,
                     "description": "Enable or disable Tara Puller automatic prompts"
                 },
-                "taraPuller.gitStorage.enabled": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Enable git-storage backup of files when recording pulls"
-                },
-                "taraPuller.gitStorage.backupMode": {
-                    "type": "string",
-                    "enum": ["activeOnly", "openFiles", "pinnedFiles"],
-                    "default": "activeOnly",
-                    "description": "Which files to backup"
-                },
-                "taraPuller.gitStorage.maxFileSizeKB": {
-                    "type": "number",
-                    "default": 1024,
-                    "minimum": 10,
-                    "description": "Maximum file size to backup (in KB)"
-                },
                 "taraPuller.testMode": {
                     "type": "boolean",
                     "default": false,
@@ -93,6 +76,7 @@
     },
     "devDependencies": {
         "@jose_pereiro/taralib-js": "file:../taralib-js",
+        "@jose_pereiro/tara-contextor-ts": "file:../tara-contextor-ts",
         "@types/vscode": "^1.85.0",
         "@types/node": "^24.3.0",
         "builtin-modules": "^5.0.0",

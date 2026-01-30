@@ -112,6 +112,8 @@ export class TapeHandler {
                 formatVersion: FORMAT_VERSION,
                 createdAt: new Date().toISOString(),
                 writer,
+            }, 
+            __tararecord: { 
                 type: 'taralib/tape-metadata'
             }
         }, { writer });
