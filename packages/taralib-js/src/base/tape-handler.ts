@@ -8,6 +8,20 @@ import { isValidUuid4 } from './utils';
 
 const FORMAT_VERSION = '0.0.1';
 
+
+
+export interface TapeHandlerOptions {
+    // Future options can be added here
+    writer?: string,
+    [key: string]: unknown;
+}
+
+export interface TapeHandlerRecipe {
+    tapeId: string,
+    tapePath: string,
+    options?: TapeHandlerOptions
+}
+
 /**
  * TapeHandler handles all tape operations including file I/O.
  * Tapes are append-only JSONL files with metadata and record management.
@@ -15,17 +29,12 @@ const FORMAT_VERSION = '0.0.1';
 export class TapeHandler {
     private tapeId: string;
     private path: string;
-    private writer?: string;
-    private metadata?: ITapeMetaRecord;
+    private options?: TapeHandlerOptions;
 
-    constructor(
-        tapeId: string,
-        tapePath: string,
-        options?: { writer?: string }
-    ) {
-        this.tapeId = tapeId;
-        this.path = tapePath;
-        this.writer = options?.writer;
+    constructor(recipe: TapeHandlerRecipe) {
+        this.tapeId = recipe.tapeId;
+        this.path = recipe.tapePath;
+        this.options = recipe.options;
     }
 
     /**
@@ -46,7 +55,7 @@ export class TapeHandler {
      * Get the writer identifier for this tape handler.
      */
     getWriter(): string | undefined {
-        return this.writer;
+        return this.options?.writer;
     }
 
     /**
@@ -102,16 +111,15 @@ export class TapeHandler {
      */
     private _builtTapeMetadata(
         customMetadata?: Record<string, unknown>,
-        __taratape?: Partial<ITaraTapeMeta>,
-        __tararecord?: Partial<ITaraRecordMeta>
+        __taratape?: ITaraTapeMeta
     ): RecordHandler {
         const writer = this.getWriter();
         if (!writer || typeof writer !== 'string' || writer.trim().length === 0) {
             throw new Error('writer is required and must be a non-empty string');
         }
 
-        return new RecordHandler(
-            {
+        return new RecordHandler({
+            content: {
                 ...customMetadata,  // user metadata at top level
                 __taratape: {
                     id: crypto.randomUUID(),
@@ -122,12 +130,11 @@ export class TapeHandler {
                     ...__taratape,
                 },
             },
-            {
+            __tararecord: {
                 type: 'taralib/tape-metadata',
-                writer,
-                ...__tararecord,
+                writer
             }
-        );
+        });
     }
 
     /**
@@ -140,8 +147,7 @@ export class TapeHandler {
      */
     private _bootstrapTape(
         customMetadata?: Record<string, unknown>,
-        __taratape?: Partial<ITaraTapeMeta>,
-        __tararecord?: Partial<ITaraRecordMeta>
+        __taratape?: Partial<ITaraTapeMeta>
     ): void {
         // Ensure parent directory exists
         const dir = path.dirname(this.path);
@@ -149,7 +155,7 @@ export class TapeHandler {
             fs.mkdirSync(dir, { recursive: true });
         }
 
-        const meta = this._builtTapeMetadata(customMetadata, __taratape, __tararecord);
+        const meta = this._builtTapeMetadata(customMetadata, __taratape);
         fs.writeFileSync(this.path, meta.toString() + '\n', 'utf-8');
     }
 
@@ -164,14 +170,13 @@ export class TapeHandler {
     instantiate(options?: {
         metadata?: Record<string, unknown>;
         __taratape?: Partial<ITaraTapeMeta>;
-        __tararecord?: Partial<ITaraRecordMeta>;
     }): this {
         // If file already exists, return early (idempotent)
         if (fs.existsSync(this.path)) {
             return this;
         }
 
-        this._bootstrapTape(options?.metadata, options?.__taratape, options?.__tararecord);
+        this._bootstrapTape(options?.metadata, options?.__taratape);
         return this;
     }
 
@@ -322,10 +327,6 @@ export class TapeHandler {
     async readMetadata(): Promise<ITapeMetaRecord> {
         this.checkFile();
 
-        if (this.metadata) {
-            return this.metadata;
-        }
-
         let metadata: ITapeMetaRecord | null = null;
 
         await this.readRecords(({ parsed }) => {
@@ -339,8 +340,6 @@ export class TapeHandler {
         if (!metadata) {
             throw new Error('No metadata record found in tape');
         }
-
-        this.metadata = metadata;
         return metadata;
     }
 

@@ -1,6 +1,16 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+export interface AppHandlerOptions {
+    [key: string]: any; 
+}
+
+export interface AppHandlerRecipe {
+    appName: string;
+    appsBasePath: string;
+    options?: AppHandlerOptions;
+}
+
 /**
  * AppHandler manages workflows for a specific Tara app.
  *
@@ -8,10 +18,12 @@ import * as path from 'path';
 export class AppHandler {
     private appName: string;
     private appPath: string;
+    private options?: AppHandlerOptions;
 
-    constructor(appName: string, appsBasePath: string) {
-        this.appName = appName;
-        this.appPath = path.join(appsBasePath, appName);
+    constructor(recipe: AppHandlerRecipe) {
+        this.appName = recipe.appName;
+        this.appPath = path.join(recipe.appsBasePath, recipe.appName);
+        this.options = recipe.options || {};
     }
 
     /**

@@ -1,12 +1,18 @@
 import { execSync, exec } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { AppHandlerRecipe } from './app-handler';
 
 export interface GitHandlerOptions {
     encoding?: BufferEncoding;
     timeout?: number;
     maxBuffer?: number;
     silent?: boolean;
+}
+
+export interface GitHandlerRecipe {
+    repoPath: string,
+    options?: GitHandlerOptions
 }
 
 /**
@@ -17,12 +23,9 @@ export class GitHandler {
     private repoPath: string;
     private options: GitHandlerOptions;
 
-    constructor(
-        repoPath: string,
-        options?: GitHandlerOptions
-    ) {
-        this.repoPath = path.resolve(repoPath);
-        this.options = options ?? {};
+    constructor(recipe: GitHandlerRecipe) {
+        this.repoPath = path.resolve(recipe.repoPath);
+        this.options = recipe.options ?? {};
     }
 
     /**
@@ -32,7 +35,9 @@ export class GitHandler {
         return this.repoPath;
     }
 
-    private _execSyncOptions(captureOutput: boolean = false): Parameters<typeof execSync>[1] {
+    private _execSyncOptions(
+        captureOutput: boolean = false
+    ): Parameters<typeof execSync>[1] {
         return {
             cwd: this.repoPath,
             encoding: this.options?.encoding || 'utf-8',

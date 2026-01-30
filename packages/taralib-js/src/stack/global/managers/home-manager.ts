@@ -69,6 +69,10 @@ export class HomeManager {
         return this.getHomePath(APPS_DIR, ...subfolders);
     }
     
+    getIndexPath(...subfolders: string[]): string {
+        return this.getHomePath('index', ...subfolders);
+    }
+
     /**
      * Get git-storage folder path.
      *

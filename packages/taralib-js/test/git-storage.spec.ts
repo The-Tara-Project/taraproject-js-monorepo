@@ -56,7 +56,7 @@ describe('GitStorageManager', () => {
 
     describe('commit', () => {
         it('commits file and returns valid link', async () => {
-            const link = await tara.global.gitst.commit(testFilePath);
+            const link = await tara.global.gitst.commitFile(testFilePath);
 
             // Verify link structure
             expect(link.repoId).toBeTruthy();
@@ -71,7 +71,7 @@ describe('GitStorageManager', () => {
         });
 
         it('preserves file content in storage', async () => {
-            const link = await tara.global.gitst.commit(testFilePath);
+            const link = await tara.global.gitst.commitFile(testFilePath);
 
             const storedFilePath = path.join(link.repoPath, link.storagePath);
             expect(fs.existsSync(storedFilePath)).toBe(true);
@@ -82,7 +82,7 @@ describe('GitStorageManager', () => {
 
         it('accepts custom commit message', async () => {
             const customMessage = 'Custom commit message';
-            const link = await tara.global.gitst.commit(testFilePath, {
+            const link = await tara.global.gitst.commitFile(testFilePath, {
                 message: customMessage
             });
 
@@ -97,7 +97,7 @@ describe('GitStorageManager', () => {
         });
 
         it('uses default commit message when not provided', async () => {
-            const link = await tara.global.gitst.commit(testFilePath);
+            const link = await tara.global.gitst.commitFile(testFilePath);
 
             expect(link.message).toContain('gitst:');
             expect(link.message).toContain('test-file.txt');
@@ -105,7 +105,7 @@ describe('GitStorageManager', () => {
 
         it('accepts metadata', async () => {
             const metadata = { foo: 'bar', number: 42 };
-            const link = await tara.global.gitst.commit(testFilePath, { metadata });
+            const link = await tara.global.gitst.commitFile(testFilePath, { metadata });
 
             const tapeHandler = tara.global.gitst.getRepoTape(link.repoId);
             const retrievedRecord = await tapeHandler.getRecordById(link.recordId);
@@ -117,15 +117,15 @@ describe('GitStorageManager', () => {
         it('throws error for non-existent file', async () => {
             const nonExistentPath = path.join(tara.global.home.getHomePath(), 'nonexistent.txt');
 
-            await expect(tara.global.gitst.commit(nonExistentPath)).rejects.toThrow('File not found');
+            await expect(tara.global.gitst.commitFile(nonExistentPath)).rejects.toThrow('File not found');
         });
 
         it('throws error for relative path', async () => {
-            await expect(tara.global.gitst.commit('relative/path.txt')).rejects.toThrow('Path must be absolute');
+            await expect(tara.global.gitst.commitFile('relative/path.txt')).rejects.toThrow('Path must be absolute');
         });
 
         it('auto-initializes if not already initialized', async () => {
-            const link = await tara.global.gitst.commit(testFilePath);
+            const link = await tara.global.gitst.commitFile(testFilePath);
 
             expect(tara.global.gitst.exists(link.repoId)).toBe(true);
         });
@@ -142,8 +142,8 @@ describe('GitStorageManager', () => {
             const altFile = path.join(altDir, 'alt-file.txt');
             fs.writeFileSync(altFile, 'alt content', 'utf-8');
 
-            const link1 = await tara.global.gitst.commit(testFilePath);
-            const link2 = await tara.global.gitst.commit(altFile);
+            const link1 = await tara.global.gitst.commitFile(testFilePath);
+            const link2 = await tara.global.gitst.commitFile(altFile);
 
             // Both should be stored correctly
             expect(fs.existsSync(path.join(link1.repoPath, link1.storagePath))).toBe(true);
@@ -162,8 +162,8 @@ describe('GitStorageManager', () => {
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
 
-            const link1 = await tara.global.gitst.commit(file1);
-            const link2 = await tara.global.gitst.commit(file2);
+            const link1 = await tara.global.gitst.commitFile(file1);
+            const link2 = await tara.global.gitst.commitFile(file2);
 
             // Different commits
             expect(link1.commitHash).not.toBe(link2.commitHash);
@@ -186,8 +186,8 @@ describe('GitStorageManager', () => {
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
 
-            const link1 = await tara.global.gitst.commit(file1, { message: 'commit 1' });
-            const link2 = await tara.global.gitst.commit(file2, { message: 'commit 2' });
+            const link1 = await tara.global.gitst.commitFile(file1, { message: 'commit 1' });
+            const link2 = await tara.global.gitst.commitFile(file2, { message: 'commit 2' });
 
             // Verify both are stored correctly
             expect(fs.readFileSync(path.join(link1.repoPath, link1.storagePath), 'utf-8')).toBe('content 1');
@@ -201,10 +201,10 @@ describe('GitStorageManager', () => {
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
 
-            const link1 = await tara.global.gitst.commit(file1, {
+            const link1 = await tara.global.gitst.commitFile(file1, {
                 metadata: { tag: 'first' }
             });
-            const link2 = await tara.global.gitst.commit(file2, {
+            const link2 = await tara.global.gitst.commitFile(file2, {
                 metadata: { tag: 'second' }
             });
 
@@ -230,8 +230,8 @@ describe('GitStorageManager', () => {
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
 
-            const link1 = await tara.global.gitst.commit(file1);
-            const link2 = await tara.global.gitst.commit(file2);
+            const link1 = await tara.global.gitst.commitFile(file1);
+            const link2 = await tara.global.gitst.commitFile(file2);
 
             // bootstrap(1) + first(2) + second(3)
             expect(link1.commitCount).toBe(2);
@@ -244,7 +244,7 @@ describe('GitStorageManager', () => {
             const fileWithSpaces = path.join(tara.global.home.getHomePath(), 'file with spaces.txt');
             fs.writeFileSync(fileWithSpaces, 'content', 'utf-8');
 
-            const link = await tara.global.gitst.commit(fileWithSpaces);
+            const link = await tara.global.gitst.commitFile(fileWithSpaces);
 
             const storedFilePath = path.join(link.repoPath, link.storagePath);
             expect(fs.existsSync(storedFilePath)).toBe(true);
@@ -252,7 +252,7 @@ describe('GitStorageManager', () => {
 
         it('handles commit messages with quotes', async () => {
             const message = 'Message with "quotes" and \'apostrophes\'';
-            const link = await tara.global.gitst.commit(testFilePath, { message });
+            const link = await tara.global.gitst.commitFile(testFilePath, { message });
 
             expect(link.message).toBe(message);
         });
@@ -262,7 +262,7 @@ describe('GitStorageManager', () => {
             const largeFile = path.join(tara.global.home.getHomePath(), 'large.txt');
             fs.writeFileSync(largeFile, largeContent, 'utf-8');
 
-            const link = await tara.global.gitst.commit(largeFile);
+            const link = await tara.global.gitst.commitFile(largeFile);
 
             const storedContent = fs.readFileSync(path.join(link.repoPath, link.storagePath), 'utf-8');
             expect(storedContent).toBe(largeContent);
@@ -271,7 +271,7 @@ describe('GitStorageManager', () => {
 
     describe('Content Hash', () => {
         it('includes content hash in link', async () => {
-            const link = await tara.global.gitst.commit(testFilePath);
+            const link = await tara.global.gitst.commitFile(testFilePath);
 
             expect(link.contentHash).toBeTruthy();
             expect(link.contentHash).toMatch(/^[0-9a-f]{64}$/); // SHA-256 hex
@@ -284,8 +284,8 @@ describe('GitStorageManager', () => {
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
 
-            const link1 = await tara.global.gitst.commit(file1);
-            const link2 = await tara.global.gitst.commit(file2);
+            const link1 = await tara.global.gitst.commitFile(file1);
+            const link2 = await tara.global.gitst.commitFile(file2);
 
             expect(link1.contentHash).not.toBe(link2.contentHash);
         });
@@ -297,8 +297,8 @@ describe('GitStorageManager', () => {
             fs.writeFileSync(file1, 'same content', 'utf-8');
             fs.writeFileSync(file2, 'same content', 'utf-8');
 
-            const link1 = await tara.global.gitst.commit(file1);
-            const link2 = await tara.global.gitst.commit(file2);
+            const link1 = await tara.global.gitst.commitFile(file1);
+            const link2 = await tara.global.gitst.commitFile(file2);
 
             expect(link1.contentHash).toBe(link2.contentHash);
         });
@@ -306,7 +306,7 @@ describe('GitStorageManager', () => {
 
     describe('Multi-Repo Support', () => {
         it('commits to auto-assigned repo', async () => {
-            const link = await tara.global.gitst.commit(testFilePath);
+            const link = await tara.global.gitst.commitFile(testFilePath);
 
             expect(link.repoId).toBeTruthy();
             expect(link.repoPath).toContain(link.repoId);
@@ -314,9 +314,9 @@ describe('GitStorageManager', () => {
 
         it('files from same originPath go to same repo', async () => {
             // Commit same file twice - should go to same repo
-            const link1 = await tara.global.gitst.commit(testFilePath);
+            const link1 = await tara.global.gitst.commitFile(testFilePath);
             fs.writeFileSync(testFilePath, 'updated content', 'utf-8');
-            const link2 = await tara.global.gitst.commit(testFilePath);
+            const link2 = await tara.global.gitst.commitFile(testFilePath);
 
             expect(link1.repoId).toBe(link2.repoId);
             expect(link1.storagePath).toBe(link2.storagePath);
@@ -329,8 +329,8 @@ describe('GitStorageManager', () => {
             fs.writeFileSync(file1, 'content 1', 'utf-8');
             fs.writeFileSync(file2, 'content 2', 'utf-8');
 
-            const link1 = await tara.global.gitst.commit(file1);
-            const link2 = await tara.global.gitst.commit(file2);
+            const link1 = await tara.global.gitst.commitFile(file1);
+            const link2 = await tara.global.gitst.commitFile(file2);
 
             // Different storagePaths (different originPaths)
             expect(link1.storagePath).not.toBe(link2.storagePath);
@@ -341,7 +341,7 @@ describe('GitStorageManager', () => {
         });
 
         it('each repo has its own internal tape in tapes subfolder', async () => {
-            const link = await tara.global.gitst.commit(testFilePath);
+            const link = await tara.global.gitst.commitFile(testFilePath);
 
             // Repo has tape file in tapes/ subfolder
             const tapeFiles = tara.global.gitst.listTapeFiles(link.repoId);
@@ -640,7 +640,7 @@ describe('GitStorageManager', () => {
 
     describe('Auto Repo Assignment', () => {
         it('first commit to a dir is assigned to a repo automatically', async () => {
-            const link = await tara.global.gitst.commit(testFilePath);
+            const link = await tara.global.gitst.commitFile(testFilePath);
 
             expect(link.repoId).toBeTruthy();
         });
@@ -651,8 +651,8 @@ describe('GitStorageManager', () => {
             fs.writeFileSync(file1, 'a', 'utf-8');
             fs.writeFileSync(file2, 'b', 'utf-8');
 
-            const link1 = await tara.global.gitst.commit(file1);
-            const link2 = await tara.global.gitst.commit(file2);
+            const link1 = await tara.global.gitst.commitFile(file1);
+            const link2 = await tara.global.gitst.commitFile(file2);
 
             // Both files go to same repo (same parent directory)
             expect(link1.repoId).toBe(link2.repoId);
@@ -669,8 +669,8 @@ describe('GitStorageManager', () => {
             fs.writeFileSync(file1, '1', 'utf-8');
             fs.writeFileSync(file2, '2', 'utf-8');
 
-            const link1 = await tara.global.gitst.commit(file1);
-            const link2 = await tara.global.gitst.commit(file2);
+            const link1 = await tara.global.gitst.commitFile(file1);
+            const link2 = await tara.global.gitst.commitFile(file2);
 
             // Different directories → different repos
             expect(link1.repoId).not.toBe(link2.repoId);
@@ -684,13 +684,13 @@ describe('GitStorageManager', () => {
             fs.writeFileSync(file1, 'data');
 
             // "Session 1"
-            const link1 = await tara.global.gitst.commit(file1);
+            const link1 = await tara.global.gitst.commitFile(file1);
 
             // "Session 2" (new instance, same home)
             const tara2 = new TaraStack({ taraHome: homeDir });
             const file2 = path.join(projectDir, 'b.txt');
             fs.writeFileSync(file2, 'more-data');
-            const link2 = await tara2.global.gitst.commit(file2);
+            const link2 = await tara2.global.gitst.commitFile(file2);
 
             // ASSERT: Both commits were assigned to the same repository
             expect(link2.repoId).toBe(link1.repoId);
@@ -698,9 +698,9 @@ describe('GitStorageManager', () => {
 
         it('files from same originPath are resolved consistently', async () => {
             // Commit same file twice, should go to same storagePath
-            const link1 = await tara.global.gitst.commit(testFilePath);
+            const link1 = await tara.global.gitst.commitFile(testFilePath);
             fs.writeFileSync(testFilePath, 'updated', 'utf-8');
-            const link2 = await tara.global.gitst.commit(testFilePath);
+            const link2 = await tara.global.gitst.commitFile(testFilePath);
 
             expect(link1.storagePath).toBe(link2.storagePath);
             expect(link1.repoId).toBe(link2.repoId);
@@ -715,8 +715,8 @@ describe('GitStorageManager', () => {
             fs.writeFileSync(file1, '1', 'utf-8');
             fs.writeFileSync(file2, '2', 'utf-8');
 
-            const link1 = await tara.global.gitst.commit(file1);
-            const link2 = await tara.global.gitst.commit(file2);
+            const link1 = await tara.global.gitst.commitFile(file1);
+            const link2 = await tara.global.gitst.commitFile(file2);
 
             // Different storagePaths for different originPaths
             expect(link1.storagePath).not.toBe(link2.storagePath);
@@ -734,7 +734,7 @@ describe('GitStorageManager', () => {
             expect(tapes[0]).toMatch(/^\d{6}-test-repo\.tara\.jsonl$/);
 
             // Verify tapes/ subfolder exists
-            const tapesDir = path.join(tara.global.gitst.getRepoPath(repoId), 'tapes');
+            const tapesDir = path.join(tara.global.gitst.builtRepoPath(repoId), 'tapes');
             expect(fs.existsSync(tapesDir)).toBe(true);
         });
 
@@ -747,7 +747,7 @@ describe('GitStorageManager', () => {
             const file = path.join(tara.global.home.getHomePath(), 'rotation-test.txt');
             fs.writeFileSync(file, 'content', 'utf-8');
 
-            const link = await tara.global.gitst.commit(file);
+            const link = await tara.global.gitst.commitFile(file);
 
             // Verify tape exists in tapes/ subfolder
             const tapes = tara.global.gitst.listTapeFiles(link.repoId);
@@ -760,7 +760,7 @@ describe('GitStorageManager', () => {
             const file = path.join(tara.global.home.getHomePath(), 'tape-param-test.txt');
             fs.writeFileSync(file, 'content', 'utf-8');
 
-            const link = await tara.global.gitst.commit(file);
+            const link = await tara.global.gitst.commitFile(file);
 
             // Get tape by specific filename
             const tapeFiles = tara.global.gitst.listTapeFiles(link.repoId);

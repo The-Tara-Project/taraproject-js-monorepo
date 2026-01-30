@@ -35,18 +35,22 @@ async function main() {
 
     // Create and append some records
     const record1 = new RecordHandler({
-        type: 'example/greeting',
-        message: 'Hello from global tapes!',
-        timestamp: new Date().toISOString(),
+        content: {
+            type: 'example/greeting',
+            message: 'Hello from global tapes!',
+            timestamp: new Date().toISOString(),
+        }
     });
 
     tape1.appendRecord(record1);
     console.log('Appended first record');
 
     const record2 = new RecordHandler({
-        type: 'example/data',
-        value: 42,
-        array: [1, 2, 3],
+        content: {
+            type: 'example/data',
+            value: 42,
+            array: [1, 2, 3],
+        }
     });
 
     tape1.appendRecord(record2);
@@ -75,9 +79,11 @@ async function main() {
         tape.instantiate();
 
         const record = new RecordHandler({
-            type: `example/${tapeName}`,
-            content: `This is a ${tapeName} record`,
-            createdAt: new Date().toISOString(),
+            content: {
+                type: `example/${tapeName}`,
+                content: `This is a ${tapeName} record`,
+                createdAt: new Date().toISOString(),
+            }
         });
 
         tape.appendRecord(record);

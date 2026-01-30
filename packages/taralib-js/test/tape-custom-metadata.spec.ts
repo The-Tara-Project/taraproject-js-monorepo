@@ -42,7 +42,7 @@ describe('TapeHandler - Custom Metadata', () => {
         expect(typeof metadata).toBe('object');
 
         // Optional: Verify the tape is functional by appending a record
-        expect(() => tape.appendRecord(new RecordHandler({ data: 'test' }))).not.toThrow();
+        expect(() => tape.appendRecord(new RecordHandler({ content: { data: 'test' } }))).not.toThrow();
     });
 
 

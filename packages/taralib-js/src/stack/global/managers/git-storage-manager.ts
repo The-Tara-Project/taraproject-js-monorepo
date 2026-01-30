@@ -89,8 +89,12 @@ export class GitStorageManager {
      * Copy file to a specific storage path.
      * @private
      */
-    private copyFileToStoragePath(originalPath: string, repoId: string, storagePath: string): void {
-        const fullStoragePath = path.join(this.getRepoPath(repoId), storagePath);
+    private copyFileToStoragePath(
+        originalPath: string,
+        repoId: string,
+        storagePath: string
+    ): void {
+        const fullStoragePath = path.join(this.builtRepoPath(repoId), storagePath);
         const storageDir = path.dirname(fullStoragePath);
 
         // Create parent directory
@@ -110,7 +114,7 @@ export class GitStorageManager {
      * @param options - Optional message, metadata, and descriptors
      * @returns TaraGitSTLink with all retrieval information
      */
-    async commit(filePath: string, options?: GitStCommitOptions): Promise<TaraGitSTLink> {
+    async commitFile(filePath: string, options?: GitStCommitOptions): Promise<TaraGitSTLink> {
         const links = await this.commitBatch([filePath], options);
         return links[0];
     }
@@ -221,7 +225,7 @@ export class GitStorageManager {
         for (const { filePath, resolution, contentHash } of fileData) {
             const linkData: Omit<TaraGitSTLink, 'recordId' | 'recordHash' | 'commitHash' | 'commitCount'> = {
                 repoId,
-                repoPath: this.getRepoPath(repoId),
+                repoPath: this.builtRepoPath(repoId),
                 originalPath: filePath,
                 storagePath: resolution.storagePath,
                 contentHash,
@@ -231,9 +235,11 @@ export class GitStorageManager {
 
             // Create tape record
             const record = new RecordHandler({
-                type: 'taralib/git-storage-commit',
-                link: linkData,
-                metadata: options?.metadata,
+                content: {
+                    type: 'taralib/git-storage-commit',
+                    link: linkData,
+                    metadata: options?.metadata,
+                }
             });
 
             records.push(record);
@@ -259,7 +265,7 @@ export class GitStorageManager {
         const descriptorTapePath = `descriptors/${this.buildCurrentTapeName(repoId)}`;
         const allPaths = [...storagePaths, tapePath, descriptorTapePath];
         for (const p of allPaths) {
-            const fullPath = path.join(this.getRepoPath(repoId), p);
+            const fullPath = path.join(this.builtRepoPath(repoId), p);
             if (fs.existsSync(fullPath)) {
                 handler.execCmdSync(`add "${p.replace(/"/g, '\\"')}"`);
             }
@@ -395,7 +401,7 @@ export class GitStorageManager {
      * @param repoId - Repository identifier
      * @returns Absolute path to ~/.taraproject/git-storage/<repoId>
      */
-    getRepoPath(repoId: string): string {
+    builtRepoPath(repoId: string): string {
         return this.getPath(repoId);
     }
 
@@ -407,9 +413,9 @@ export class GitStorageManager {
     private getGitHandler(repoId: string): GitHandler {
         let handler = this.gitHandlers.get(repoId);
         if (!handler) {
-            const repoPath = this.getRepoPath(repoId);
+            const repoPath = this.builtRepoPath(repoId);
             const silent = this.context.settings.getSetting('git.silent', true);
-            handler = new GitHandler(repoPath, { silent });
+            handler = new GitHandler({ repoPath, options: { silent } });
             this.gitHandlers.set(repoId, handler);
         }
         return handler;
@@ -441,7 +447,7 @@ export class GitStorageManager {
      * @private
      */
     private getTapesDir(repoId: string): string {
-        return path.join(this.getRepoPath(repoId), 'tapes');
+        return path.join(this.builtRepoPath(repoId), 'tapes');
     }
 
     // MARK: ...getTape
@@ -460,7 +466,11 @@ export class GitStorageManager {
             ? path.join(tapesDir, tapeFile)
             : this.tapePath(repoId);
         const writer = this.context.settings.getSetting('writer');
-        return new TapeHandler(repoId, tapePath, { writer });
+        return new TapeHandler({
+            tapeId: repoId,
+            tapePath,
+            options: { writer }
+        });
     }
 
     // MARK: ...tapePath

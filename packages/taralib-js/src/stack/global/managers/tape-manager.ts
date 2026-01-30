@@ -22,7 +22,7 @@ export class GTapeManager {
      * Get the repo directory path for a tape.
      * @private
      */
-    private getRepoPath(tapeId: string): string {
+    private builtRepoPath(tapeId: string): string {
         return this.context.global.home.getTapesPath(tapeId);
     }
 
@@ -39,7 +39,7 @@ export class GTapeManager {
      * @private
      */
     private buildTapePath(tapeId: string): string {
-        const repoPath = this.getRepoPath(tapeId);
+        const repoPath = this.builtRepoPath(tapeId);
         return path.join(repoPath, this.buildCurrentTapeName(tapeId));
     }
 
@@ -48,7 +48,7 @@ export class GTapeManager {
      * @private
      */
     private instantiateRepo(tapeId: string): void {
-        const repoPath = this.getRepoPath(tapeId);
+        const repoPath = this.builtRepoPath(tapeId);
 
         if (!fs.existsSync(repoPath)) {
             fs.mkdirSync(repoPath, { recursive: true });
@@ -68,7 +68,7 @@ export class GTapeManager {
      * List all .tara.jsonl files in a tape's repo.
      */
     listTapeFiles(tapeId: string): string[] {
-        const repoPath = this.getRepoPath(tapeId);
+        const repoPath = this.builtRepoPath(tapeId);
         if (!fs.existsSync(repoPath)) return [];
 
         return fs.readdirSync(repoPath)
@@ -99,14 +99,18 @@ export class GTapeManager {
     get(tapeId: string): TapeHandler {
         this.instantiateRepo(tapeId);
         const writer = this.context.settings.getSetting('writer');
-        return new TapeHandler(tapeId, this.buildTapePath(tapeId), { writer });
+        return new TapeHandler({
+            tapeId,
+            tapePath: this.buildTapePath(tapeId),
+            options: { writer }
+        });
     }
 
     /**
      * Check if a tape repo exists (has .git directory).
      */
     exists(tapeId: string): boolean {
-        const gitDir = path.join(this.getRepoPath(tapeId), '.git');
+        const gitDir = path.join(this.builtRepoPath(tapeId), '.git');
         return fs.existsSync(gitDir);
     }
 
@@ -114,7 +118,7 @@ export class GTapeManager {
      * Delete an entire tape repo (rm -rf tapes/<tapeId>/).
      */
     delete(tapeId: string): void {
-        const repoPath = this.getRepoPath(tapeId);
+        const repoPath = this.builtRepoPath(tapeId);
         if (fs.existsSync(repoPath)) {
             fs.rmSync(repoPath, { recursive: true, force: true });
         }
@@ -125,7 +129,7 @@ export class GTapeManager {
      * No-op if there are no changes to commit.
      */
     commitChanges(tapeId: string): void {
-        const repoPath = this.getRepoPath(tapeId);
+        const repoPath = this.builtRepoPath(tapeId);
         const gitDir = path.join(repoPath, '.git');
         if (!fs.existsSync(gitDir)) return;
 

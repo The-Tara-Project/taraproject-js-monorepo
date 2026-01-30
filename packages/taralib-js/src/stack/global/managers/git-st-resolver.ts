@@ -2,7 +2,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { TaraStack } from '../../tara-stack';
-import { TapeHandler } from '../../../base/tape-handler';
+import { TapeHandler, TapeHandlerOptions } from '../../../base/tape-handler';
 import { RecordHandler } from '../../../base/record-handler';
 import { YYYYMM_prefix } from '../../../base/utils';
 
@@ -40,7 +40,7 @@ export interface ResolveResult {
  * `originPath` is a special descriptor used for assignment on miss.
  */
 export class GitStResolver {
-    constructor(private context: TaraStack) {}
+    constructor(private context: TaraStack) { }
 
     // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
     // MARK: PUBLIC API
@@ -86,7 +86,7 @@ export class GitStResolver {
         return {
             storagePath: firstPath,
             repoId: firstRepoId,
-            repoPath: this.getRepoPath(firstRepoId),
+            repoPath: this.builtRepoPath(firstRepoId),
             isNew: false,
             fullDescriptors,
         };
@@ -123,7 +123,9 @@ export class GitStResolver {
      * Scan all descriptor tapes for records matching the given descriptors.
      * A record matches if it contains ALL pairs in the query (exact equality).
      */
-    private async scanDescriptorTapes(query: DescriptorPair[]): Promise<DescriptorRecord[]> {
+    private async scanDescriptorTapes(
+        query: DescriptorPair[]
+    ): Promise<DescriptorRecord[]> {
         const matches: DescriptorRecord[] = [];
         const repoIds = this.listRepoIds();
 
@@ -192,7 +194,7 @@ export class GitStResolver {
         const sourceRoot = this.deriveSourceRoot(originPath);
         const repoId = this.hashToRepoId(sourceRoot);
         const storagePath = this.mapPathToStorage(originPath);
-        const repoPath = this.getRepoPath(repoId);
+        const repoPath = this.builtRepoPath(repoId);
 
         return { storagePath, repoId, repoPath };
     }
@@ -253,10 +255,12 @@ export class GitStResolver {
      */
     async writeDescriptorRecord(record: DescriptorRecord): Promise<void> {
         const tape = this.getDescriptorTape(record.repoId);
-        
+
         const taraRecord = new RecordHandler({
-            type: 'taralib/git-storage-descriptor',
-            ...record,
+            content: {
+                type: 'taralib/git-storage-descriptor',
+                ...record,
+            }
         });
 
         tape.appendRecord(taraRecord);
@@ -271,7 +275,7 @@ export class GitStResolver {
      * Get the descriptors directory for a repo.
      */
     getDescriptorTapesDir(repoId: string): string {
-        return path.join(this.getRepoPath(repoId), 'descriptors');
+        return path.join(this.builtRepoPath(repoId), 'descriptors');
     }
 
     // MARK: ...getDescriptorTape
@@ -288,7 +292,11 @@ export class GitStResolver {
         const tapePath = path.join(descriptorsDir, tapeName);
         const writer = this.context.settings.getSetting('writer');
 
-        return new TapeHandler(repoId, tapePath, { writer });
+        return new TapeHandler({
+            tapeId: repoId,
+            tapePath,
+            options: { writer }
+        });
     }
 
     // MARK: ...listDescriptorTapeFiles
@@ -313,13 +321,14 @@ export class GitStResolver {
      * List existing repo IDs in git-storage home directory.
      */
     private listRepoIds(): string[] {
+        // `#josePereiro/REVIEWED`
         const homePath = this.context.global.home.getGitStoragePath();
         if (!fs.existsSync(homePath)) return [];
-
         return fs.readdirSync(homePath).filter(name => {
             const full = path.join(homePath, name);
-            return fs.statSync(full).isDirectory() && 
-                   fs.existsSync(this.context.global.home.getGitStoragePath(name, '.git'));
+            const git = path.join(full, '.git');
+            return fs.statSync(full).isDirectory() &&
+                fs.existsSync(git);
         });
     }
 
@@ -327,7 +336,8 @@ export class GitStResolver {
     /**
      * Get path for a specific repo.
      */
-    private getRepoPath(repoId: string): string {
+    private builtRepoPath(repoId: string): string {
+        // `#josePereiro/REVIEWED`
         return this.context.global.home.getGitStoragePath(repoId);
     }
 
@@ -335,8 +345,17 @@ export class GitStResolver {
     /**
      * Get a TapeHandler for reading tape content.
      */
-    private getTape(repoId: string, tapePath: string): TapeHandler {
+    private getTape(
+        repoId: string,
+        tapePath: string,
+        options?: TapeHandlerOptions
+    ): TapeHandler {
+        // add writer
         const writer = this.context.settings.getSetting('writer');
-        return new TapeHandler(repoId, tapePath, { writer });
+        return new TapeHandler({
+            tapeId: repoId,
+            tapePath,
+            options: { ...options, writer }
+        });
     }
 }

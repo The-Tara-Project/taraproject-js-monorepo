@@ -26,7 +26,7 @@ async function main() {
     fs.writeFileSync(testFile, 'Hello, GitStorage!', 'utf-8');
 
     // Commit the file
-    const link = tara.global.gitst.commit(testFile);
+    const link = tara.global.gitst.commitFile(testFile);
 
     console.log('Committed file successfully!');
     console.log('Commit hash:', link.commitHash);
@@ -44,7 +44,7 @@ async function main() {
     const dataFile = path.join(os.tmpdir(), 'data.json');
     fs.writeFileSync(dataFile, JSON.stringify({ name: 'test', value: 42 }), 'utf-8');
 
-    const link2 = tara.global.gitst.commit(dataFile, {
+    const link2 = tara.global.gitst.commitFile(dataFile, {
         message: 'Added important data file',
         metadata: {
             project: 'example',

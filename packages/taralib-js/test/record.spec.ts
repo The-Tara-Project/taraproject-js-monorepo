@@ -6,7 +6,7 @@ describe('record', () => {
 
     describe('RecordHandler', () => {
         it('creates record with __tararecord.id', () => {
-            const record = new RecordHandler();
+            const record = new RecordHandler({ content: {} });
             const obj = record.toObject();
             expect(obj.__tararecord).toBeDefined();
             expect(obj.__tararecord.id).toBeDefined();
@@ -14,7 +14,7 @@ describe('record', () => {
         });
 
         it('preserves content in record', () => {
-            const record = new RecordHandler({ foo: 'bar', count: 42 });
+            const record = new RecordHandler({ content: { foo: 'bar', count: 42 } });
             const obj = record.toObject();
             expect(obj.foo).toBe('bar');
             expect(obj.count).toBe(42);
@@ -22,19 +22,19 @@ describe('record', () => {
         });
 
         it('generates unique ids', () => {
-            const r1 = new RecordHandler();
-            const r2 = new RecordHandler();
+            const r1 = new RecordHandler({ content: {} });
+            const r2 = new RecordHandler({ content: {} });
             expect(r1.getId()).not.toBe(r2.getId());
         });
 
         it('provides access to content', () => {
-            const record = new RecordHandler({ foo: 'bar' });
+            const record = new RecordHandler({ content: { foo: 'bar' } });
             const content = record.getContent();
             expect(content.foo).toBe('bar');
         });
 
         it('serializes to JSON', () => {
-            const record = new RecordHandler({ foo: 'bar' });
+            const record = new RecordHandler({ content: { foo: 'bar' } });
             const json = record.toString();
             const parsed = JSON.parse(json);
             expect(parsed.foo).toBe('bar');
@@ -73,7 +73,7 @@ describe('record', () => {
 
         it('throws on invalid ID', () => {
             expect(() => {
-                new RecordHandler({}, {id: 'invalid-id'});
+                new RecordHandler({ content: {}, __tararecord: { id: 'invalid-id' } });
             }).toThrow('Invalid record: invalid UUID v4 format for id');
         });
 
@@ -90,7 +90,7 @@ describe('record', () => {
         });
 
         it('caches serialization', () => {
-            const record = new RecordHandler({ foo: 'bar' });
+            const record = new RecordHandler({ content: { foo: 'bar' } });
             const str1 = record.toString();
             const str2 = record.toString();
             expect(str1).toBe(str2);

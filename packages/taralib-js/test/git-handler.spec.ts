@@ -11,7 +11,7 @@ describe('GitHandler', () => {
     beforeEach(() => {
         // Create a temporary directory for testing
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-handler-test-'));
-        gitHandler = new GitHandler(tempDir);
+        gitHandler = new GitHandler({ repoPath: tempDir });
     });
 
     afterEach(() => {
@@ -25,7 +25,7 @@ describe('GitHandler', () => {
 
 
         it('should resolve relative paths to absolute paths', () => {
-            const relativeHandler = new GitHandler('./test-repo');
+            const relativeHandler = new GitHandler({ repoPath: './test-repo' });
             expect(path.isAbsolute(relativeHandler.getRepoPath())).toBe(true);
         });
     });
@@ -45,7 +45,7 @@ describe('GitHandler', () => {
 
         it('should create the directory if it does not exist', () => {
             const nonExistentPath = path.join(tempDir, 'new-repo');
-            const newHandler = new GitHandler(nonExistentPath);
+            const newHandler = new GitHandler({ repoPath: nonExistentPath });
             expect(fs.existsSync(nonExistentPath)).toBe(false);
             
             newHandler.instanciate();
@@ -55,7 +55,7 @@ describe('GitHandler', () => {
 
         it('should initialize a git repo in a newly created directory', () => {
             const nonExistentPath = path.join(tempDir, 'new-repo');
-            const newHandler = new GitHandler(nonExistentPath);
+            const newHandler = new GitHandler({ repoPath: nonExistentPath });
             
             newHandler.instanciate();
 

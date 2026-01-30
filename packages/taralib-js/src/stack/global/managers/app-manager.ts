@@ -34,7 +34,7 @@ export class AppManager {
    */
   get(appName: string): AppHandler {
     const appsPath = this.context.global.home.getAppsPath();
-    return new AppHandler(appName, appsPath);
+    return new AppHandler({ appName, appsBasePath: appsPath });
   }
 
   /**

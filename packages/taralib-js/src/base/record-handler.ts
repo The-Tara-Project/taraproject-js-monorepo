@@ -2,15 +2,27 @@ import * as crypto from 'crypto';
 import type { ITaraRecord, ITaraRecordMeta } from './types';
 import { isValidUuid4 } from './utils';
 
+type RecordHandlerContent = Record<string, unknown>;
+
+export interface RecordHandlerOptions {
+    // Future options can be added here
+    [key: string]: unknown;
+}
+
+export interface RecordHandlerRecipe {
+    content: RecordHandlerContent;
+    __tararecord?: Partial<ITaraRecordMeta>;
+}
+
 
 /**
  * RecordHandler is a class-based state machine for managing record workflows.
  * Records are immutable after creation - no new custom data can be added.
  * Internal state can change for system operations (serialization caching, validation state, hashing).
  */
-export class RecordHandler<T extends Record<string, unknown> = Record<string, unknown>> {
+export class RecordHandler{
     private aux__tararecord: ITaraRecordMeta;       // auxilary metadata
-    private readonly content: Readonly<T>;  // auxilary content
+    private readonly content: Readonly<RecordHandlerContent>;  // auxilary content
 
     private serializedCache?: string;
 
@@ -37,23 +49,20 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
      * @param id - Optional UUID (generated if not provided)
      * @param writer - Optional identifier for who/what created this record
      */
-    constructor(
-        content: T = {} as T,
-        __tararecord?: Partial<ITaraRecordMeta>
-    ) {
+    constructor(recipe: RecordHandlerRecipe) {
 
         // check for reserved keys in content
-        if ('__tararecord' in content) {
+        if ('__tararecord' in recipe.content) {
             throw new Error('Invalid record: content cannot contain reserved key __tararecord. Use RecordHandler.fromObject() to create from existing record object.');
         }
 
         // Initialize metadata
         this.aux__tararecord = {
-            id: __tararecord?.id || crypto.randomUUID(),
-            writer: __tararecord?.writer,
-            contentHash: __tararecord?.contentHash,
-            canonicalHash: __tararecord?.canonicalHash,
-            type: __tararecord?.type
+            id: recipe.__tararecord?.id || crypto.randomUUID(),
+            writer: recipe.__tararecord?.writer,
+            contentHash: recipe.__tararecord?.contentHash,
+            canonicalHash: recipe.__tararecord?.canonicalHash,
+            type: recipe.__tararecord?.type
         };
 
         // Validate ID if provided
@@ -62,7 +71,7 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
         }
 
         // Freeze content for immutability
-        this.content = Object.freeze({ ...content }) as Readonly<T>;
+        this.content = Object.freeze({ ...recipe.content }) as Readonly<RecordHandlerContent>;
     }
 
     /**
@@ -75,7 +84,7 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
     /**
      * Get the record content (frozen, read-only).
      */
-    getContent(): Readonly<T> {
+    getContent(): Readonly<RecordHandlerContent> {
         return this.content;
     }
 
@@ -83,7 +92,7 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
      * Convert the record to a plain object with __tararecord metadata.
      * This is the format used for serialization and external access.
      */
-    toObject(): T & { __tararecord: ITaraRecordMeta } {
+    toObject(): ITaraRecord {
         return {
             ...this.content,
             __tararecord: this.__tararecord
@@ -96,7 +105,8 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
      */
     toString(): string {
         if (!this.serializedCache) {
-            this.serializedCache = JSON.stringify(this.toObject());
+            const obj = this.toObject()
+            this.serializedCache = JSON.stringify(obj);
         }
         return this.serializedCache;
     }
@@ -130,26 +140,26 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
      * Create a RecordHandler from a plain object.
      * The object must have a valid __tararecord.id field.
      */
-    static fromObject<T extends Record<string, unknown>>(
-        obj: T & Record<string, unknown>
-    ): RecordHandler<T> {
+    static fromObject(
+        obj: unknown
+    ): RecordHandler {
         if (!RecordHandler._isValidRecordObject(obj)) {
             throw new Error('Invalid record: missing or invalid __tararecord.id');
         }
 
         // Extract content (everything except __tararecord)
-        const { __tararecord, ...content } = obj;
+        const { __tararecord, ...content } = obj as ITaraRecord;
 
-        return new RecordHandler<T>(
-            content as T, 
-            __tararecord as Partial<ITaraRecordMeta>
-        );
+        return new RecordHandler({
+            content: content as RecordHandlerContent, 
+            __tararecord: __tararecord as Partial<ITaraRecordMeta>
+        });
     }
 
     /**
      * Parse a JSON string into a RecordHandler.
      */
-    static fromJSON<T extends Record<string, unknown>>(json: string): RecordHandler<T> {
+    static fromJSON(json: string): RecordHandler {
         let parsed: unknown;
         try {
             parsed = JSON.parse(json);
@@ -161,7 +171,7 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
             throw new Error('Invalid record: parsed JSON is not an object');
         }
 
-        return RecordHandler.fromObject<T>(parsed as T & Record<string, unknown>);
+        return RecordHandler.fromObject(parsed);
     }
 
     /**

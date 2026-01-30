@@ -46,7 +46,7 @@ describe('GTapeManager', () => {
 
 describe('RecordHandler', () => {
     it('creates records with immutable content', () => {
-        const record = new RecordHandler({ foo: 'bar', value: 42 });
+        const record = new RecordHandler({ content: { foo: 'bar', value: 42 } });
 
         expect(record.getId()).toMatch(/^[0-9a-f-]{36}$/);
         expect(record.getContent().foo).toBe('bar');
@@ -54,7 +54,7 @@ describe('RecordHandler', () => {
     });
 
     it('serializes and deserializes records', () => {
-        const original = new RecordHandler({ test: 123 });
+        const original = new RecordHandler({ content: { test: 123 } });
         const json = original.toString();
 
         const fromJson = RecordHandler.fromJSON(json);
@@ -67,7 +67,7 @@ describe('RecordHandler', () => {
     });
 
     it('validates record structure', () => {
-        const record = new RecordHandler({ data: 'test' });
+        const record = new RecordHandler({ content: { data: 'test' } });
         const obj = record.toObject();
 
         expect(RecordHandler.isValid(obj)).toBe(true);

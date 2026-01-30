@@ -194,7 +194,7 @@ describe('GitStorageManager with GitStResolver', () => {
 
     describe('commit integration', () => {
         it('commits file using resolver-based assignment', async () => {
-            const link = await tara.global.gitst.commit(testFilePath);
+            const link = await tara.global.gitst.commitFile(testFilePath);
 
             expect(link.repoId).toBeTruthy();
             expect(link.storagePath).toBeTruthy();
@@ -203,12 +203,12 @@ describe('GitStorageManager with GitStResolver', () => {
         });
 
         it('commits same file twice to same storagePath', async () => {
-            const link1 = await tara.global.gitst.commit(testFilePath);
+            const link1 = await tara.global.gitst.commitFile(testFilePath);
             
             // Modify file
             fs.writeFileSync(testFilePath, 'updated content', 'utf-8');
             
-            const link2 = await tara.global.gitst.commit(testFilePath);
+            const link2 = await tara.global.gitst.commitFile(testFilePath);
 
             expect(link2.storagePath).toBe(link1.storagePath);
             expect(link2.repoId).toBe(link1.repoId);
@@ -216,7 +216,7 @@ describe('GitStorageManager with GitStResolver', () => {
         });
 
         it('commits with custom descriptors', async () => {
-            const link = await tara.global.gitst.commit(testFilePath, {
+            const link = await tara.global.gitst.commitFile(testFilePath, {
                 descriptors: [['project', 'test-project']]
             });
 
@@ -225,7 +225,7 @@ describe('GitStorageManager with GitStResolver', () => {
         });
 
         it('descriptor tape is staged and committed', async () => {
-            const link = await tara.global.gitst.commit(testFilePath);
+            const link = await tara.global.gitst.commitFile(testFilePath);
 
             // Check that descriptor tape exists in repo
             const descriptorsDir = path.join(link.repoPath, 'descriptors');

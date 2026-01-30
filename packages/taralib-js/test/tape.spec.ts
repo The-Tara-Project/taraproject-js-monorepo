@@ -32,8 +32,8 @@ describe('tape', () => {
             const testTape = tara.global.tapes.get(_testTapeId);
 
             testTape.instantiate();
-            const record1 = new RecordHandler({ data: 'first' });
-            const record2 = new RecordHandler({ data: 'second' });
+            const record1 = new RecordHandler({ content: { data: 'first' } });
+            const record2 = new RecordHandler({ content: { data: 'second' } });
             testTape.appendRecord(record1);
             testTape.appendRecord(record2);
 
@@ -126,7 +126,7 @@ describe('tape', () => {
             const _testTapeId = `commit-test-${Date.now()}`;
             const tape = tara.global.tapes.get(_testTapeId);
             tape.instantiate();
-            tape.appendRecord(new RecordHandler({ data: 'test' }));
+            tape.appendRecord(new RecordHandler({ content: { data: 'test' } }));
 
             // Should not throw
             expect(() => tara.global.tapes.commitChanges(_testTapeId)).not.toThrow();
@@ -140,8 +140,8 @@ describe('tape', () => {
         it('streams records from tape', async () => {
             const tape = tara.global.tapes.get(testTapeId);
             tape.instantiate();
-            const record1 = new RecordHandler({ data: 'test1' });
-            const record2 = new RecordHandler({ data: 'test2' });
+            const record1 = new RecordHandler({ content: { data: 'test1' } });
+            const record2 = new RecordHandler({ content: { data: 'test2' } });
             tape.appendRecord(record1);
             tape.appendRecord(record2);
 
@@ -159,7 +159,7 @@ describe('tape', () => {
             const createdTape = tara.global.tapes.get(testTapeId);
             createdTape.instantiate();
             for (let i = 0; i < 10; i++) {
-                createdTape.appendRecord(new RecordHandler({ index: i }));
+                createdTape.appendRecord(new RecordHandler({ content: { index: i } }));
             }
 
             const records: any[] = [];
@@ -176,7 +176,7 @@ describe('tape', () => {
         it('throws error on corrupted record', async () => {
             const createdTape = tara.global.tapes.get(testTapeId);
             createdTape.instantiate();
-            createdTape.appendRecord(new RecordHandler({ data: 'valid' }));
+            createdTape.appendRecord(new RecordHandler({ content: { data: 'valid' } }));
             fs.appendFileSync(createdTape.getHomePath(), 'invalid json\n', 'utf-8');
 
             await expect(async () => {
@@ -190,9 +190,9 @@ describe('tape', () => {
             const createdTape = tara.global.tapes.get(testTapeId);
             createdTape.instantiate();
             const records = [
-                new RecordHandler({ data: 'batch1' }),
-                new RecordHandler({ data: 'batch2' }),
-                new RecordHandler({ data: 'batch3' }),
+                new RecordHandler({ content: { data: 'batch1' } }),
+                new RecordHandler({ content: { data: 'batch2' } }),
+                new RecordHandler({ content: { data: 'batch3' } }),
             ];
 
             createdTape.appendRecordBatch(records);

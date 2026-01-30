@@ -38,7 +38,7 @@ describe('integration: create -> store -> read -> check', () => {
                 tags: ['test', 'integration'],
             },
         };
-        const record = new RecordHandler(testContent);
+        const record = new RecordHandler({ content: testContent });
 
         // 3. Append record to tape
         tape.appendRecord(record);
@@ -74,9 +74,9 @@ describe('integration: create -> store -> read -> check', () => {
 
         // Add multiple records
         const records = [
-            new RecordHandler({ index: 0, data: 'first' }),
-            new RecordHandler({ index: 1, data: 'second' }),
-            new RecordHandler({ index: 2, data: 'third' }),
+            new RecordHandler({ content: { index: 0, data: 'first' } }),
+            new RecordHandler({ content: { index: 1, data: 'second' } }),
+            new RecordHandler({ content: { index: 2, data: 'third' } }),
         ];
 
         for (const record of records) {
