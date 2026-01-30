@@ -38,7 +38,7 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
      * @param writer - Optional identifier for who/what created this record
      */
     constructor(content: T = {} as T,
-        options?: {} & ITaraRecordMeta
+        options?: Partial<ITaraRecordMeta>
     ) {
         this.auxmeta = {
             id: options?.id || crypto.randomUUID(),

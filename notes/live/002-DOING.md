@@ -1,3 +1,10 @@
+## DOING: contextor
+- contextor should provide context sumarization
+- I mean, once it returns, we can use contextor to produce an attachment summary
+- so, apps can use the raw context data or the summary
+
+## DOING: upgrade tara-puller to use Contextor
+
 ## DOING: modify tape metadata record
 - the taralib metadata is in __taratape
 - but we should allow users to add custom metadata at tape level
