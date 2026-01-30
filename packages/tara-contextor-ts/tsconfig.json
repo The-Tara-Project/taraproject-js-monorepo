@@ -25,7 +25,7 @@
         "src/index.ts",
         "src/**/*.ts",
         "types/**/*"
-, "src/source.CitationJS.fetch.ts"    ],
+    ],
     "exclude": [
         "node_modules",
         "dist",

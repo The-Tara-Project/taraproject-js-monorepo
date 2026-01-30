@@ -2,29 +2,39 @@
 
 ## Overview
 
-Create a new package `tara-contextor-ts` - a pure orchestration library for context collection following the request-orchestrate-reference pattern. Depends only on `taralib-js`.
+Create a new package `tara-contextor-ts` - a context collection library integrated with the tara stack. Contextor receives TaraStack on construction.
+
+## MVP Design Decisions
+
+| Decision | Choice |
+|----------|--------|
+| MVP Output | `liteContext` only - no anchors, no tape writing |
+| Git Info | Not in MVP - just paths |
+| TaraStack | Contextor receives TaraStack on construction |
+| Types | Minimal MVP types - expand later |
+| Provider Location | Built into tara-contextor, vscode API via `request.options` |
+| Collect Mode | Sequential (one request at a time) |
+| Provider Registration | Built-in only, registry for discovery/metadata |
+| Missing vscode | Fail gracefully with error status |
+| LiteContext Shape | Separate keys matching item names |
 
 ## MVP Goal
 
-Provide the Contextor framework with:
-- Provider orchestration
-- Timeout handling and error normalization
-- A `vscode-session` provider interface (implementation provided externally)
-    - `#FEEDBACK`
-        - the providers are built in into `tara-contextor-ts`
+- Provider orchestration with minimal types
+- Built-in `vscode-session` provider (receives vscode API from caller)
+- Returns only `liteContext` (no anchors, no tape storage)
 
 ## Architecture
 
 ```
-Contextor (orchestration only)
+Contextor (orchestration)
+  ├── constructor(stack: TaraStack, options?)
   └── collect(requests) → ContextRequestResult[]
         ├── resolveProvider(name) → prov: ContextProvider | undefined
-        └── prov.collect(request) → result
+        └── prov.collect(request) → result (sequential)
 ```
 
 ## Package Structure
-
-- this is temptative and can be adjusted as needed
 
 ```
 packages/tara-contextor-ts/
@@ -34,138 +44,172 @@ packages/tara-contextor-ts/
 ├── src/
 │   ├── index.ts                    # Public exports
 │   ├── base/
-│   │   ├── types.ts                # Core type definitions
-│   │   ├── virtual-provider.ts    # A virtual base class for providers
-│   │   ...
-│   ├── stack/
-│       ├── contextor.ts                # Main Contextor class
-│       ├── providers/
-│           ├── vscode-session-provider.ts  # VSCode session provider (interface only)
-│           ├── ...                     # Other built-in providers (if any)
-│       ├── provider-registry.ts        # Provider metadata
+│   │   └── types.ts                # Core type definitions
+│   └── stack/
+│       ├── contextor.ts            # Main Contextor class
+│       ├── provider-registry.ts    # Provider metadata/resolution
+│       ├── context-provider.ts     # Abstract base class
+│       └── providers/
+│           └── vscode-session-provider.ts
 └── test/
     └── contextor.spec.ts
 ```
 
-## Some Core Types examples
+## MVP Types
 
 ```typescript
-// Request/Response
+// Request
 interface ContextRequest {
     provider: string;
     items: string[];
     options?: Record<string, unknown>;
 }
 
+// Result (MVP minimal - no anchors, no error object)
 interface ContextRequestResult {
     provider: string;
-    status: 'success' | 'partial' | 'error' | 'timeout';
-    collectedItems: string[];
-    failedItems: string[];
-    liteContext: LiteContext;       // cheap/minimal context to inline
-    anchors: ContextAnchor[];       // References to stored context
-    error?: ContextErrorReport;
-}
-
-// Provider interface
-abstract class ContextProvider {
-    abstract readonly name: string;
-    abstract readonly supportedItems: readonly string[];
-    abstract collect(request: ContextRequest, ...): Promise<ProviderCollectResult>;
-}
-
-interface ProviderCollectResult {
+    status: 'success' | 'partial' | 'error';
     collectedItems: string[];
     failedItems: string[];
     liteContext: LiteContext;
-    anchors: ContextAnchor[];
-    error?: ContextErrorReport;
 }
 
-// Anchors - references to stored context
-interface ContextAnchor {
-    type: string;           // e.g., 'tape-record', 'file', 'inline'
-    id: string;
-    label?: string;
-    provider: string;
-    sessionId: string;
-    ref: ContextAnchorRef;
-    capturedAt: string;
+// Minimal inline context - keys match requested items
+type LiteContext = Record<string, unknown>;
+
+// Contextor options
+interface ContextorOptions {
+    captureTimeoutMs?: number;
+}
+
+// Provider metadata (for registry)
+interface ProviderMetadata {
+    name: string;
+    supportedItems: readonly string[];
 }
 ```
 
-## Implementation Steps
+## Contextor Class
 
-### 2. Core Types (`src/types.ts`)
-- All interfaces defined above
-- Export type definitions for external provider implementations
-
-### 5. Contextor Class (`src/contextor.ts`)
 ```typescript
+import { TaraStack } from '@jose_pereiro/taralib-js';
+
 class Contextor {
-    constructor(options?: ContextorOptions);
+    constructor(stack: TaraStack, options?: ContextorOptions);
 
-    // Register a custom provider
-    resolveProvider(name: string): ContextProvider | undefined;
-
-    // Main collection method
+    // Main collection - sequential
     async collect(requests: ContextRequest[]): Promise<ContextRequestResult[]>;
 
     // Introspection
     listProviders(): string[];
-    getProviderItems(name: string): string[] | undefined;
+    getProviderItems(name: string): readonly string[] | undefined;
 }
 ```
 
-### 6. Public Exports (`src/index.ts`)
+## ContextProvider Base
+
 ```typescript
-export { Contextor } from './contextor';
-export { ProviderRegistry } from './registry/provider-registry';
-export type {
-    ContextRequest, ContextRequestResult, ContextAnchor, 
-    ContextProvider, ContextErrorReport,
-    TapeRecordRef, InlineRef,
-} from './types';
+abstract class ContextProvider {
+    abstract readonly name: string;
+    abstract readonly supportedItems: readonly string[];
+
+    constructor(readonly contextor: Contextor) {}
+
+    abstract collect(request: ContextRequest): Promise<ContextRequestResult>;
+
+    getMetadata(): ProviderMetadata;
+}
 ```
+
+## VSCode Session Provider
+
+```typescript
+class VscodeSessionProvider extends ContextProvider {
+    readonly name = 'vscode-session';
+    readonly supportedItems = [
+        'opened-files-paths',
+        'focused-file-path',
+        'workspace-folders-paths'
+    ] as const;
+
+    async collect(request: ContextRequest): Promise<ContextRequestResult> {
+        const vscode = request.options?.vscode as typeof import('vscode') | undefined;
+
+        // Fail gracefully if vscode API missing
+        if (!vscode) {
+            return {
+                collectedItems: [],
+                failedItems: [...request.items],
+                liteContext: {},
+            };
+        }
+
+        // Collect each requested item
+        // liteContext keys match item names:
+        // { 'opened-files-paths': [...], 'focused-file-path': '...', ... }
+    }
+
+    private getOpenedFilesPaths(vscode): string[] {
+        // vscode.window.tabGroups.all → extract fsPath from each tab
+    }
+
+    private getFocusedFilePath(vscode): string | null {
+        // vscode.window.activeTextEditor?.document.uri.fsPath
+    }
+
+    private getWorkspaceFoldersPaths(vscode): string[] {
+        // vscode.workspace.workspaceFolders → map to fsPath
+    }
+}
+```
+
+## Usage Example
+
+```typescript
+// In VSCode extension
+import * as vscode from 'vscode';
+import { TaraStack } from '@jose_pereiro/taralib-js';
+import { Contextor } from '@jose_pereiro/tara-contextor';
+
+const stack = new TaraStack({ writer: 'my-extension' });
+const contextor = new Contextor(stack, { captureTimeoutMs: 3000 });
+
+const results = await contextor.collect([
+    {
+        provider: 'vscode-session',
+        items: ['opened-files-paths', 'focused-file-path', 'workspace-folders-paths'],
+        options: { vscode }  // Pass vscode API
+    }
+]);
+
+console.log(results[0].liteContext);
+// { 'opened-files-paths': [...], 'focused-file-path': '...', 'workspace-folders-paths': [...] }
+```
+
+## Files to Create
+
+| # | File | Description |
+|---|------|-------------|
+| 1 | `package.json` | Package config, depends on @jose_pereiro/taralib-js |
+| 2 | `tsconfig.json` | Extends ../../tsconfig.base.json |
+| 3 | `esbuild.config.mjs` | Copy pattern from taralib-js |
+| 4 | `src/index.ts` | Public exports |
+| 5 | `src/base/types.ts` | Type definitions |
+| 6 | `src/stack/context-provider.ts` | Abstract base class |
+| 7 | `src/stack/contextor.ts` | Main Contextor class |
+| 8 | `src/stack/provider-registry.ts` | Built-in provider resolution |
+| 9 | `src/stack/providers/vscode-session-provider.ts` | VSCode session provider |
 
 ## Root package.json Update
 
-Add to workspaces:
+Add to workspaces array:
 ```json
-"workspaces": [
-    "packages/taralib-js",
-    "packages/vscode-tara-puller-extenssion",
-    "packages/vscode-taraproject-extenssion",
-    "packages/tara-contextor-ts"
-]
-```
-
-## Provider Implementation Example
-
-```typescript
-// Custom provider implementation
-class VscodeSessionProvider implements ContextProvider {
-    readonly name = 'vscode-session';
-    readonly supportedItems = ['opened-files-paths', 'focused-file-path', 'workspace-folders-paths'] as const;
-
-    constructor(
-        readonly context: Contextor 
-    ) {}
-
-    async collect(reqs: ContextRequest[], options: Record<string, unknown>): Promise<ProviderCollectResult> {
-        // ... implementation to gather data from VSCode session
-    }
-}
-
-// Usage
-const contextor = new Contextor({ captureTimeoutMs: 3000 });
-
-const results = await contextor.collect([
-    { provider: 'vscode-session', items: ['opened-files-paths', 'focused-file-path', 'workspace-folders-paths'] }
-]);
+"packages/tara-contextor-ts"
 ```
 
 ## Verification
 
 1. Build: `npm run build -w packages/tara-contextor-ts`
-2. Create test with mock provider 
+2. Type check: `npm run typecheck -w packages/tara-contextor-ts`
+3. Unit test with mock vscode object
+4. Integration test in VSCode extension
