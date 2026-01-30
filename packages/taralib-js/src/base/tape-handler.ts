@@ -97,8 +97,14 @@ export class TapeHandler {
     /**
      * Create tape metadata record.
      * @param customMetadata - Optional user-defined metadata for the tape (placed at top level)
+     * @param __taratape - Optional overrides for __taratape fields (user values win)
+     * @param __tararecord - Optional overrides for __tararecord fields (user values win)
      */
-    private _builtTapeMetadata(customMetadata?: Record<string, unknown>): RecordHandler {
+    private _builtTapeMetadata(
+        customMetadata?: Record<string, unknown>,
+        __taratape?: Partial<Record<string, unknown>>,
+        __tararecord?: Partial<Record<string, unknown>>
+    ): RecordHandler {
         const writer = this.getWriter();
         if (!writer || typeof writer !== 'string' || writer.trim().length === 0) {
             throw new Error('writer is required and must be a non-empty string');
@@ -112,9 +118,11 @@ export class TapeHandler {
                 formatVersion: FORMAT_VERSION,
                 createdAt: new Date().toISOString(),
                 writer,
+                ...__taratape,
             }, 
             __tararecord: { 
-                type: 'taralib/tape-metadata'
+                type: 'taralib/tape-metadata',
+                ...__tararecord,
             }
         }, { writer });
     }
@@ -124,15 +132,21 @@ export class TapeHandler {
      * - creates necessary directories
      * - writes initial metadata record
      * @param customMetadata - Optional user-defined metadata for the tape
+     * @param __taratape - Optional overrides for __taratape fields
+     * @param __tararecord - Optional overrides for __tararecord fields
      */
-    private _bootstrapTape(customMetadata?: Record<string, unknown>): void {
+    private _bootstrapTape(
+        customMetadata?: Record<string, unknown>,
+        __taratape?: Partial<Record<string, unknown>>,
+        __tararecord?: Partial<Record<string, unknown>>
+    ): void {
         // Ensure parent directory exists
         const dir = path.dirname(this.path);
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
 
-        const meta = this._builtTapeMetadata(customMetadata);
+        const meta = this._builtTapeMetadata(customMetadata, __taratape, __tararecord);
         fs.writeFileSync(this.path, meta.toString() + '\n', 'utf-8');
     }
 
@@ -141,14 +155,20 @@ export class TapeHandler {
      * This operation is idempotent.
      * Uses writer from the TapeHandler instance for tape metadata.
      * @param options.metadata - Optional user-defined metadata for the tape (placed at top level of first record)
+     * @param options.__taratape - Optional overrides for __taratape fields (user values win)
+     * @param options.__tararecord - Optional overrides for __tararecord fields (user values win)
      */
-    instantiate(options?: { metadata?: Record<string, unknown> }): this {
+    instantiate(options?: { 
+        metadata?: Record<string, unknown>;
+        __taratape?: Partial<Record<string, unknown>>;
+        __tararecord?: Partial<Record<string, unknown>>;
+    }): this {
         // If file already exists, return early (idempotent)
         if (fs.existsSync(this.path)) {
             return this;
         }
 
-        this._bootstrapTape(options?.metadata);
+        this._bootstrapTape(options?.metadata, options?.__taratape, options?.__tararecord);
         return this;
     }
 

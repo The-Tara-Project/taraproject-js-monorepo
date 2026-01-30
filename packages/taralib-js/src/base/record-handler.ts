@@ -9,7 +9,7 @@ import { isValidUuid4 } from './utils';
  * Internal state can change for system operations (serialization caching, validation state, hashing).
  */
 export class RecordHandler<T extends Record<string, unknown> = Record<string, unknown>> {
-    private auxmeta: ITaraRecordMeta;       // auxilary metadata
+    private aux__tararecord: ITaraRecordMeta;       // auxilary metadata
     private readonly content: Readonly<T>;  // auxilary content
 
     private serializedCache?: string;
@@ -18,15 +18,15 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
      * Get the __tararecord metadata object.
      */
     get __tararecord(): ITaraRecordMeta {
-        const meta: ITaraRecordMeta = { id: this.auxmeta.id };
-        if (this.auxmeta.writer) {
-            meta.writer = this.auxmeta.writer;
+        const meta: ITaraRecordMeta = { id: this.aux__tararecord.id };
+        if (this.aux__tararecord.writer) {
+            meta.writer = this.aux__tararecord.writer;
         }
-        if (this.auxmeta.contentHash) {
-            meta.contentHash = this.auxmeta.contentHash;
+        if (this.aux__tararecord.contentHash) {
+            meta.contentHash = this.aux__tararecord.contentHash;
         }
-        if (this.auxmeta.type) {
-            meta.type = this.auxmeta.type;
+        if (this.aux__tararecord.type) {
+            meta.type = this.aux__tararecord.type;
         }
         return meta;
     }
@@ -37,19 +37,27 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
      * @param id - Optional UUID (generated if not provided)
      * @param writer - Optional identifier for who/what created this record
      */
-    constructor(content: T = {} as T,
-        options?: Partial<ITaraRecordMeta>
+    constructor(
+        content: T = {} as T,
+        __tararecord?: Partial<ITaraRecordMeta>
     ) {
-        this.auxmeta = {
-            id: options?.id || crypto.randomUUID(),
-            writer: options?.writer,
-            contentHash: options?.contentHash,
-            canonicalHash: options?.canonicalHash,
-            type: options?.type
+
+        // check for reserved keys in content
+        if ('__tararecord' in content) {
+            throw new Error('Invalid record: content cannot contain reserved key __tararecord. Use RecordHandler.fromObject() to create from existing record object.');
+        }
+
+        // Initialize metadata
+        this.aux__tararecord = {
+            id: __tararecord?.id || crypto.randomUUID(),
+            writer: __tararecord?.writer,
+            contentHash: __tararecord?.contentHash,
+            canonicalHash: __tararecord?.canonicalHash,
+            type: __tararecord?.type
         };
 
         // Validate ID if provided
-        if (!isValidUuid4(this.auxmeta.id)) {
+        if (!isValidUuid4(this.aux__tararecord.id)) {
             throw new Error('Invalid record: invalid UUID v4 format for id');
         }
 
@@ -61,7 +69,7 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
      * Get the record ID.
      */
     getId(): string {
-        return this.auxmeta.id;
+        return this.aux__tararecord.id;
     }
 
     /**
@@ -112,24 +120,30 @@ export class RecordHandler<T extends Record<string, unknown> = Record<string, un
         return isValidUuid4(meta.id);
     }
 
+    static checkValidRecordObject(obj: unknown): void {
+        if (!RecordHandler._isValidRecordObject(obj)) {
+            throw new Error('Invalid record: missing or invalid __tararecord.id');
+        }
+    }
+
     /**
      * Create a RecordHandler from a plain object.
      * The object must have a valid __tararecord.id field.
      */
-    static fromObject<T extends Record<string, unknown>>(obj: T & Record<string, unknown>): RecordHandler<T> {
+    static fromObject<T extends Record<string, unknown>>(
+        obj: T & Record<string, unknown>
+    ): RecordHandler<T> {
         if (!RecordHandler._isValidRecordObject(obj)) {
             throw new Error('Invalid record: missing or invalid __tararecord.id');
         }
 
-        const meta = obj.__tararecord as Record<string, unknown>;
-        const id = meta.id as string;
-        const writer = meta?.writer as string | undefined;
-        const type = meta?.type as string | undefined;
-
         // Extract content (everything except __tararecord)
         const { __tararecord, ...content } = obj;
 
-        return new RecordHandler<T>(content as T, { id, writer, type });
+        return new RecordHandler<T>(
+            content as T, 
+            __tararecord as Partial<ITaraRecordMeta>
+        );
     }
 
     /**
