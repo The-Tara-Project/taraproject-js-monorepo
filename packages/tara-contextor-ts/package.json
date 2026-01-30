@@ -13,9 +13,8 @@
         "dev": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs",
         "build": "tsc --emitDeclarationOnly && node esbuild.config.mjs production",
         "typecheck": "tsc -noEmit",
-        "test": "vitest",
-        "test-watch": "vitest",
-        "test-run": "vitest run"
+        "test": "vitest run",
+        "test:watch": "vitest"
     },
     "engines": {
         "node": ">=18"
