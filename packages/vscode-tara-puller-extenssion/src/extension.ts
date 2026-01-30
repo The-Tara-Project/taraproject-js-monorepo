@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { execSync } from 'child_process';
-import { TaraStack, TapeHandler, RecordHandler, TaraGitSTLink } from '@jose_pereiro/taralib-js';
+import { TaraStack, RecordHandler, TaraGitSTLink } from '@jose_pereiro/taralib-js';
 
 const APP_NAME = 'tara-puller';
 const CONFIRM_PREFIX = '...';
@@ -395,17 +395,15 @@ function reinitTaraStack(): void {
 /**
  * Get or create tape handler for the current tape ID
  */
-function getTape(): TapeHandler {
+function getTape() {
     const tara = initTaraStack();
     const tapeId = currentTapeId();
 
     // Get the tape handler (creates new instance)
     const tape = tara.global.tapes.get(tapeId);
 
-    // Ensure tape file exists (idempotent operation)
-    if (!tape.exists()) {
-        tape.instantiate();
-    }
+    // Ensure tape file exists (instantiate is idempotent)
+    tape.instantiate();
 
     return tape;
 }
