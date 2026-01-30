@@ -213,6 +213,7 @@ describe('GitStorageManager', () => {
 
             const tapeHandler = tara.global.gitst.getRepoTape(link1.repoId);
             const records: any[] = [];
+            console.log('got tape handler, starting read');
 
             await tapeHandler.readRecords(({ parsed }) => {
                 if (parsed.type === 'taralib/git-storage-commit') {

@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
 import { RecordHandler } from './record-handler';
-import type { ITapeMetaRecord, ITaraRecord, ReadRecordsCallback, ReadRecordsCallbackArgs, ReadJSONLCallback, ReadJSONLCallbackArgs } from './types';
+import type { ITapeMetaRecord, ITaraRecord, ReadRecordsCallback, ReadRecordsCallbackArgs, ReadJSONLCallback, ReadJSONLCallbackArgs, ITaraRecordMeta, ITaraTapeMeta } from './types';
 import { isValidUuid4 } from './utils';
 
 const FORMAT_VERSION = '0.0.1';
@@ -102,29 +102,32 @@ export class TapeHandler {
      */
     private _builtTapeMetadata(
         customMetadata?: Record<string, unknown>,
-        __taratape?: Partial<Record<string, unknown>>,
-        __tararecord?: Partial<Record<string, unknown>>
+        __taratape?: Partial<ITaraTapeMeta>,
+        __tararecord?: Partial<ITaraRecordMeta>
     ): RecordHandler {
         const writer = this.getWriter();
         if (!writer || typeof writer !== 'string' || writer.trim().length === 0) {
             throw new Error('writer is required and must be a non-empty string');
         }
 
-        return new RecordHandler({
-            ...customMetadata,  // user metadata at top level
-            __taratape: {
-                id: crypto.randomUUID(),
-                name: this.tapeId,
-                formatVersion: FORMAT_VERSION,
-                createdAt: new Date().toISOString(),
-                writer,
-                ...__taratape,
-            }, 
-            __tararecord: { 
+        return new RecordHandler(
+            {
+                ...customMetadata,  // user metadata at top level
+                __taratape: {
+                    id: crypto.randomUUID(),
+                    name: this.tapeId,
+                    formatVersion: FORMAT_VERSION,
+                    createdAt: new Date().toISOString(),
+                    writer,
+                    ...__taratape,
+                },
+            },
+            {
                 type: 'taralib/tape-metadata',
+                writer,
                 ...__tararecord,
             }
-        }, { writer });
+        );
     }
 
     /**
@@ -137,8 +140,8 @@ export class TapeHandler {
      */
     private _bootstrapTape(
         customMetadata?: Record<string, unknown>,
-        __taratape?: Partial<Record<string, unknown>>,
-        __tararecord?: Partial<Record<string, unknown>>
+        __taratape?: Partial<ITaraTapeMeta>,
+        __tararecord?: Partial<ITaraRecordMeta>
     ): void {
         // Ensure parent directory exists
         const dir = path.dirname(this.path);
@@ -158,10 +161,10 @@ export class TapeHandler {
      * @param options.__taratape - Optional overrides for __taratape fields (user values win)
      * @param options.__tararecord - Optional overrides for __tararecord fields (user values win)
      */
-    instantiate(options?: { 
+    instantiate(options?: {
         metadata?: Record<string, unknown>;
-        __taratape?: Partial<Record<string, unknown>>;
-        __tararecord?: Partial<Record<string, unknown>>;
+        __taratape?: Partial<ITaraTapeMeta>;
+        __tararecord?: Partial<ITaraRecordMeta>;
     }): this {
         // If file already exists, return early (idempotent)
         if (fs.existsSync(this.path)) {
@@ -179,7 +182,7 @@ export class TapeHandler {
             crlfDelay: Infinity,
         });
         let lineCount = 0;
-        
+
         try {
             for await (const _ of rl) {
                 lineCount++;
