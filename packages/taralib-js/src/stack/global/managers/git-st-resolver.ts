@@ -11,10 +11,10 @@ import { YYYYMM_prefix } from '../../../base/utils';
 // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
 
 export interface DescriptorPairs {
-    originPath: string;
-    [key: string]: string | number | boolean;
+    originPath?: string;
+    [key: string]: string | number | boolean | undefined;
 }
-    
+
 
 export interface DescriptorRecord {
     descriptors: DescriptorPairs;
@@ -88,26 +88,13 @@ export class GitStResolver {
      * Low-level: returns ALL matching descriptor records.
      * No deduplication, no ambiguity check.
      */
-    async resolveAll(descriptors: DescriptorPair[]): Promise<DescriptorRecord[]> {
-        return this.scanDescriptorTapes(descriptors);
+    async resolveAll(input: DescriptorPairs): Promise<DescriptorRecord[]> {
+        return this.scanDescriptorTapes(input);
     }
 
     // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
     // MARK: INTERNAL METHODS
     // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
-
-    // MARK: ...buildFullDescriptors
-    /**
-     * Build full descriptor list from input.
-     * originPath is prepended as the first descriptor.
-     */
-    private buildFullDescriptors(input: DescriptorPairs): DescriptorPair[] {
-        const result: DescriptorPair[] = [['originPath', input.originPath]];
-        if (input.descriptors) {
-            result.push(...input.descriptors);
-        }
-        return result;
-    }
 
     // MARK: ...scanDescriptorTapes
     /**
@@ -115,13 +102,11 @@ export class GitStResolver {
      * A record matches if it contains ALL pairs in the query (exact equality).
      */
     private async scanDescriptorTapes(
-        input: DescriptorPairs
+        query: DescriptorPairs
     ): Promise<DescriptorRecord[]> {
         const matches: DescriptorRecord[] = [];
         const repoIds = this.listRepoIds();
-        const descriptors = this.buildFullDescriptors(input);
 
-        // test descriptors
         for (const repoId of repoIds) {
             const descriptorsDir = this.getDescriptorTapesDir(repoId);
             if (!fs.existsSync(descriptorsDir)) continue;
@@ -136,7 +121,7 @@ export class GitStResolver {
                 const tape = this.getTape(repoId, tapePath);
 
                 await tape.readJSONL(({ parsed }) => {
-                    if (this.recordMatches(parsed, descriptors)) {
+                    if (this.recordMatches(parsed.descriptors, query)) {
                         matches.push({
                             descriptors: parsed.descriptors,
                             storagePath: parsed.storagePath,
@@ -177,19 +162,15 @@ export class GitStResolver {
      * Check if a record matches the query.
      * Match = record contains ALL query pairs (exact key+value equality, type-sensitive).
      */
-    private recordMatches(record: any, query: DescriptorPair[]): boolean {
-        if (!record?.descriptors || !Array.isArray(record.descriptors)) {
+    private recordMatches(record: DescriptorPairs | undefined, query: DescriptorPairs): boolean {
+        if (!record || typeof record !== 'object') {
             return false;
         }
 
-        const recordMap = new Map<string, string | number | boolean>();
-        for (const [k, v] of record.descriptors) {
-            recordMap.set(k, v);
-        }
-
-        for (const [qKey, qValue] of query) {
-            const recordValue = recordMap.get(qKey);
-            if (recordValue === undefined || recordValue !== qValue) {
+        for (const key of Object.keys(query)) {
+            const qValue = query[key];
+            if (qValue === undefined) continue;
+            if (record[key] !== qValue) {
                 return false;
             }
         }
@@ -207,6 +188,10 @@ export class GitStResolver {
     private async assignFromOriginPath(
         input: DescriptorPairs
     ): Promise<ResolveResult> {
+        if (!input.originPath) {
+            throw new Error('Cannot create new file: originPath is required');
+        }
+
         const sourceRoot = this.deriveSourceRoot(input.originPath);
         const repoId = this.hashToRepoId(sourceRoot);
         const storagePath = this.mapPathToStorage(input.originPath);
@@ -214,11 +199,10 @@ export class GitStResolver {
 
         return {
             storagePath,
-            originPath: input.originPath,
             repoId,
             repoPath,
             isNew: true,
-            descriptors: input.descriptors
+            descriptors: input
         };
     }
 

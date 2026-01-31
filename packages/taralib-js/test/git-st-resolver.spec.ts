@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { TaraStack } from '../src';
-import { GitStResolver, type DescriptorPair } from '../src/stack/global/managers/git-st-resolver';
+import { GitStResolver } from '../src/stack/global/managers/git-st-resolver';
 import { setupTestEnv, teardownTestEnv } from './utils';
 
 describe('GitStResolver', () => {
@@ -33,32 +33,34 @@ describe('GitStResolver', () => {
             expect(result.storagePath).toBeTruthy();
             expect(result.repoId).toBeTruthy();
             expect(result.repoPath).toBeTruthy();
-            expect(result.descriptors).toEqual([['originPath', '/test/path/file.txt']]);
+            expect(result.descriptors).toEqual({ originPath: '/test/path/file.txt' });
         });
 
         it('returns descriptors including user descriptors', async () => {
             const originPath = '/test/path/file.txt';
-            const userDescriptors: DescriptorPair[] = [
-                ['project', 'my-project'],
-                ['version', 1]
-            ];
+            const userDescriptors = {
+                project: 'my-project',
+                version: 1
+            };
 
             const result = await resolver.resolve({
                 originPath,
-                descriptors: userDescriptors
+                ...userDescriptors
             });
 
-            expect(result.descriptors!.length).toBe(3);
-            expect(result.descriptors![0]).toEqual(['originPath', originPath]);
-            expect(result.descriptors![1]).toEqual(['project', 'my-project']);
-            expect(result.descriptors![2]).toEqual(['version', 1]);
+            expect(result.descriptors).toEqual({
+                originPath,
+                project: 'my-project',
+                version: 1
+            });
         });
     });
 
     describe('resolve - with written descriptor records', () => {
         // Helper to write a descriptor and instantiate repo
-        async function setupDescriptor(originPath: string, descriptors?: DescriptorPair[]) {
-            const result = await resolver.resolve({ originPath, descriptors });
+        async function setupDescriptor(originPath: string, additionalDescriptors?: Record<string, any>) {
+            const input = { originPath, ...additionalDescriptors };
+            const result = await resolver.resolve(input);
             // Instantiate repo so it shows up in listRepoIds
             tara.global.gitst.instantiate(result.repoId);
             // Write the descriptor record
@@ -88,17 +90,17 @@ describe('GitStResolver', () => {
         it('matches on user descriptors', async () => {
             const originPath1 = '/test/path/file1.txt';
             const originPath2 = '/test/path/file2.txt';
-            const descriptors: DescriptorPair[] = [['project', 'shared']];
+            const userDescriptors = { project: 'shared' };
 
             // Create with descriptors
-            const first = await setupDescriptor(originPath1, descriptors);
+            const first = await setupDescriptor(originPath1, userDescriptors);
             expect(first.isNew).toBe(true);
 
             // Different originPath but same user descriptors should NOT match
             // (because originPath is part of the descriptor vector)
             const second = await resolver.resolve({
                 originPath: originPath2,
-                descriptors
+                ...userDescriptors
             });
             expect(second.isNew).toBe(true);
             expect(second.storagePath).not.toBe(first.storagePath);
@@ -108,13 +110,13 @@ describe('GitStResolver', () => {
             const originPath = '/test/path/file.txt';
 
             // Create with specific descriptors
-            await setupDescriptor(originPath, [['version', 1], ['env', 'prod']]);
+            await setupDescriptor(originPath, { version: 1, env: 'prod' });
 
             // Partial match (originPath + version) is subset of stored
-            // [originPath, version, env], so it SHOULD match
+            // so it SHOULD match
             const partial = await resolver.resolve({
                 originPath,
-                descriptors: [['version', 1]]
+                version: 1
             });
             expect(partial.isNew).toBe(false);
         });
@@ -125,7 +127,7 @@ describe('GitStResolver', () => {
             // Create with number
             const first = await resolver.resolve({
                 originPath: '/test/path/file1.txt',
-                descriptors: [['count', 5]]
+                count: 5
             });
             
             // Instantiate and write
@@ -140,7 +142,7 @@ describe('GitStResolver', () => {
             // Query with string "5" and different originPath - should NOT match
             const second = await resolver.resolve({
                 originPath: '/test/path/file2.txt',
-                descriptors: [['count', '5']]
+                count: '5'
             });
             expect(second.isNew).toBe(true);
             expect(second.storagePath).not.toBe(first.storagePath);
@@ -162,13 +164,13 @@ describe('GitStResolver', () => {
             });
             
             // Query for matching records
-            const matches = await resolver.resolveAll([['originPath', originPath]]);
+            const matches = await resolver.resolveAll({ originPath });
             expect(matches.length).toBe(1);
-            expect(matches[0].descriptors[0]).toEqual(['originPath', originPath]);
+            expect(matches[0].descriptors.originPath).toBe(originPath);
         });
 
         it('returns empty array when no matches', async () => {
-            const matches = await resolver.resolveAll([['nonexistent', 'value']]);
+            const matches = await resolver.resolveAll({ nonexistent: 'value' });
             expect(matches).toEqual([]);
         });
     });
