@@ -10,18 +10,17 @@ import { YYYYMM_prefix } from '../../../base/utils';
 // MARK: Types
 // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
 
-export type DescriptorPair = [string, string | number | boolean];
+export interface DescriptorPairs {
+    originPath: string;
+    [key: string]: string | number | boolean;
+}
+    
 
 export interface DescriptorRecord {
-    descriptors: DescriptorPair[];
+    descriptors: DescriptorPairs;
     storagePath: string;
     repoId: string;
     timestamp: string;
-}
-
-export interface ResolveQuery {
-    originPath: string;
-    descriptors?: DescriptorPair[];
 }
 
 export interface ResolveResult {
@@ -29,7 +28,7 @@ export interface ResolveResult {
     repoId: string;
     repoPath: string;
     isNew: boolean;
-    descriptors?: DescriptorPair[];
+    descriptors?: DescriptorPairs;
 }
 
 /**
@@ -62,36 +61,25 @@ export class GitStResolver {
      * @throws Error if matches point to different storagePaths (ambiguous)
      */
     async resolve(
-        input: ResolveQuery
+        input: DescriptorPairs
     ): Promise<ResolveResult> {
-        const fullDescriptors = this.buildFullDescriptors(input);
-        const matches = await this.scanDescriptorTapes(fullDescriptors);
 
+        const matches = await this.scanDescriptorTapes(input);
+
+        // No matches - assign new
         if (matches.length === 0) {
-            // No matches - assign new
-            const { storagePath, repoId, repoPath } = await this.assignFromOriginPath(input.originPath);
-
-            return { storagePath, repoId, repoPath, isNew: true, descriptors: fullDescriptors };
+            return await this.assignFromOriginPath(input);
         }
 
-        // Check all matches point to same storagePath
-        const firstPath = matches[0].storagePath;
-        const firstRepoId = matches[0].repoId;
-        for (const match of matches) {
-            if (match.storagePath !== firstPath || match.repoId !== firstRepoId) {
-                throw new Error(
-                    `Ambiguous resolution: descriptors match multiple storage paths ` +
-                    `(${firstRepoId}:${firstPath} vs ${match.repoId}:${match.storagePath})`
-                );
-            }
-        }
+        // check for ambiguity
+        this.validateUniqueStorage(matches);
 
         return {
-            storagePath: firstPath,
-            repoId: firstRepoId,
-            repoPath: this.builtRepoPath(firstRepoId),
+            storagePath: matches[0].storagePath,
+            repoId: matches[0].repoId,
+            repoPath: this.builtRepoPath(matches[0].repoId),
             isNew: false,
-            descriptors: fullDescriptors,
+            descriptors: input,
         };
     }
 
@@ -113,7 +101,7 @@ export class GitStResolver {
      * Build full descriptor list from input.
      * originPath is prepended as the first descriptor.
      */
-    private buildFullDescriptors(input: ResolveQuery): DescriptorPair[] {
+    private buildFullDescriptors(input: DescriptorPairs): DescriptorPair[] {
         const result: DescriptorPair[] = [['originPath', input.originPath]];
         if (input.descriptors) {
             result.push(...input.descriptors);
@@ -127,11 +115,13 @@ export class GitStResolver {
      * A record matches if it contains ALL pairs in the query (exact equality).
      */
     private async scanDescriptorTapes(
-        query: DescriptorPair[]
+        input: DescriptorPairs
     ): Promise<DescriptorRecord[]> {
         const matches: DescriptorRecord[] = [];
         const repoIds = this.listRepoIds();
+        const descriptors = this.buildFullDescriptors(input);
 
+        // test descriptors
         for (const repoId of repoIds) {
             const descriptorsDir = this.getDescriptorTapesDir(repoId);
             if (!fs.existsSync(descriptorsDir)) continue;
@@ -146,7 +136,7 @@ export class GitStResolver {
                 const tape = this.getTape(repoId, tapePath);
 
                 await tape.readJSONL(({ parsed }) => {
-                    if (this.recordMatches(parsed, query)) {
+                    if (this.recordMatches(parsed, descriptors)) {
                         matches.push({
                             descriptors: parsed.descriptors,
                             storagePath: parsed.storagePath,
@@ -159,6 +149,27 @@ export class GitStResolver {
         }
 
         return matches;
+    }
+
+    // MARK: ...validateUniqueStorage
+    /**
+     * Validate that all matches point to the same storagePath and repoId.
+     * @throws Error if matches point to different storage locations (ambiguous)
+     */
+    private validateUniqueStorage(matches: DescriptorRecord[]): void {
+        if (matches.length === 0) return;
+
+        const firstPath = matches[0].storagePath;
+        const firstRepoId = matches[0].repoId;
+
+        for (const match of matches) {
+            if (match.storagePath !== firstPath || match.repoId !== firstRepoId) {
+                throw new Error(
+                    `Ambiguous resolution: descriptors match multiple storage paths ` +
+                    `(${firstRepoId}:${firstPath} vs ${match.repoId}:${match.storagePath})`
+                );
+            }
+        }
     }
 
     // MARK: ...recordMatches
@@ -193,13 +204,22 @@ export class GitStResolver {
      * - If file is inside a git repo → hash(git repo root)
      * - Otherwise → hash(parent directory)
      */
-    private async assignFromOriginPath(originPath: string): Promise<{ storagePath: string; repoId: string; repoPath: string }> {
-        const sourceRoot = this.deriveSourceRoot(originPath);
+    private async assignFromOriginPath(
+        input: DescriptorPairs
+    ): Promise<ResolveResult> {
+        const sourceRoot = this.deriveSourceRoot(input.originPath);
         const repoId = this.hashToRepoId(sourceRoot);
-        const storagePath = this.mapPathToStorage(originPath);
+        const storagePath = this.mapPathToStorage(input.originPath);
         const repoPath = this.builtRepoPath(repoId);
 
-        return { storagePath, repoId, repoPath };
+        return {
+            storagePath,
+            originPath: input.originPath,
+            repoId,
+            repoPath,
+            isNew: true,
+            descriptors: input.descriptors
+        };
     }
 
     // MARK: ...deriveSourceRoot
