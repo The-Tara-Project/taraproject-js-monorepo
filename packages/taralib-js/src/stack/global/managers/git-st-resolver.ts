@@ -48,7 +48,7 @@ export class GitStResolver {
 
     // MARK: ...resolve
     /**
-     * Resolve a storage path for the given input.
+     * Resolve a storage path for the given query.
      * 
      * 1. Builds full descriptor list (originPath + user descriptors)
      * 2. Scans descriptor tapes for matches
@@ -61,14 +61,14 @@ export class GitStResolver {
      * @throws Error if matches point to different storagePaths (ambiguous)
      */
     async resolve(
-        input: DescriptorPairs
+        query: DescriptorPairs
     ): Promise<ResolveResult> {
 
-        const matches = await this.scanDescriptorTapes(input);
+        const matches = await this.scanDescriptorTapes(query);
 
         // No matches - assign new
         if (matches.length === 0) {
-            return await this.assignFromOriginPath(input);
+            return await this.assignFromOriginPath(query);
         }
 
         // check for ambiguity
@@ -79,7 +79,7 @@ export class GitStResolver {
             repoId: matches[0].repoId,
             repoPath: this.builtRepoPath(matches[0].repoId),
             isNew: false,
-            descriptors: input,
+            descriptors: query,
         };
     }
 
@@ -88,8 +88,8 @@ export class GitStResolver {
      * Low-level: returns ALL matching descriptor records.
      * No deduplication, no ambiguity check.
      */
-    async resolveAll(input: DescriptorPairs): Promise<DescriptorRecord[]> {
-        return this.scanDescriptorTapes(input);
+    async resolveAll(query: DescriptorPairs): Promise<DescriptorRecord[]> {
+        return this.scanDescriptorTapes(query);
     }
 
     // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
@@ -111,10 +111,8 @@ export class GitStResolver {
             const descriptorsDir = this.getDescriptorTapesDir(repoId);
             if (!fs.existsSync(descriptorsDir)) continue;
 
-            const tapeFiles = fs.readdirSync(descriptorsDir)
-                .filter(f => f.endsWith('.tara.jsonl'))
-                .sort()
-                .reverse(); // Most recent first
+            // Most recent first
+            const tapeFiles = this.listDescriptorTapeFileNames(repoId).reverse();             
 
             for (const tapeFile of tapeFiles) {
                 const tapePath = path.join(descriptorsDir, tapeFile);
@@ -186,15 +184,15 @@ export class GitStResolver {
      * - Otherwise → hash(parent directory)
      */
     private async assignFromOriginPath(
-        input: DescriptorPairs
+        query: DescriptorPairs
     ): Promise<ResolveResult> {
-        if (!input.originPath) {
+        if (!query.originPath) {
             throw new Error('Cannot create new file: originPath is required');
         }
 
-        const sourceRoot = this.deriveSourceRoot(input.originPath);
+        const sourceRoot = this.deriveSourceRoot(query.originPath);
         const repoId = this.hashToRepoId(sourceRoot);
-        const storagePath = this.mapPathToStorage(input.originPath);
+        const storagePath = this.mapPathToStorage(query.originPath);
         const repoPath = this.builtRepoPath(repoId);
 
         return {
@@ -202,7 +200,7 @@ export class GitStResolver {
             repoId,
             repoPath,
             isNew: true,
-            descriptors: input
+            descriptors: query
         };
     }
 
@@ -306,11 +304,11 @@ export class GitStResolver {
         });
     }
 
-    // MARK: ...listDescriptorTapeFiles
+    // MARK: ...listDescriptorTapeFileNames
     /**
      * List all descriptor tape files for a repo.
      */
-    listDescriptorTapeFiles(repoId: string): string[] {
+    listDescriptorTapeFileNames(repoId: string): string[] {
         const descriptorsDir = this.getDescriptorTapesDir(repoId);
         if (!fs.existsSync(descriptorsDir)) return [];
 

@@ -217,7 +217,6 @@ describe('GitStorageManager', () => {
                     records.push(parsed);
                 }
             });
-            console.log('tape read complete');
 
             expect(records.length).toBe(2);
             expect(records[0].metadata?.tag).toBe('first');
