@@ -33,10 +33,10 @@ describe('GitStResolver', () => {
             expect(result.storagePath).toBeTruthy();
             expect(result.repoId).toBeTruthy();
             expect(result.repoPath).toBeTruthy();
-            expect(result.fullDescriptors).toEqual([['originPath', '/test/path/file.txt']]);
+            expect(result.descriptors).toEqual([['originPath', '/test/path/file.txt']]);
         });
 
-        it('returns fullDescriptors including user descriptors', async () => {
+        it('returns descriptors including user descriptors', async () => {
             const originPath = '/test/path/file.txt';
             const userDescriptors: DescriptorPair[] = [
                 ['project', 'my-project'],
@@ -48,10 +48,10 @@ describe('GitStResolver', () => {
                 descriptors: userDescriptors
             });
 
-            expect(result.fullDescriptors.length).toBe(3);
-            expect(result.fullDescriptors[0]).toEqual(['originPath', originPath]);
-            expect(result.fullDescriptors[1]).toEqual(['project', 'my-project']);
-            expect(result.fullDescriptors[2]).toEqual(['version', 1]);
+            expect(result.descriptors!.length).toBe(3);
+            expect(result.descriptors![0]).toEqual(['originPath', originPath]);
+            expect(result.descriptors![1]).toEqual(['project', 'my-project']);
+            expect(result.descriptors![2]).toEqual(['version', 1]);
         });
     });
 
@@ -63,7 +63,7 @@ describe('GitStResolver', () => {
             tara.global.gitst.instantiate(result.repoId);
             // Write the descriptor record
             await resolver.writeDescriptorRecord({
-                descriptors: result.fullDescriptors,
+                descriptors: result.descriptors!,
                 storagePath: result.storagePath,
                 repoId: result.repoId,
                 timestamp: new Date().toISOString(),
@@ -131,7 +131,7 @@ describe('GitStResolver', () => {
             // Instantiate and write
             tara.global.gitst.instantiate(first.repoId);
             await resolver.writeDescriptorRecord({
-                descriptors: first.fullDescriptors,
+                descriptors: first.descriptors!,
                 storagePath: first.storagePath,
                 repoId: first.repoId,
                 timestamp: new Date().toISOString(),
@@ -155,7 +155,7 @@ describe('GitStResolver', () => {
             const result = await resolver.resolve({ originPath });
             tara.global.gitst.instantiate(result.repoId);
             await resolver.writeDescriptorRecord({
-                descriptors: result.fullDescriptors,
+                descriptors: result.descriptors!,
                 storagePath: result.storagePath,
                 repoId: result.repoId,
                 timestamp: new Date().toISOString(),

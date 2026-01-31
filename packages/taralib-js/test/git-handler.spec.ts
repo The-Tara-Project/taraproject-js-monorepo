@@ -106,5 +106,39 @@ describe('GitHandler', () => {
                 });
             });
         }
+
+        describe('array syntax', () => {
+            it('should accept array of arguments and handle escaping', () => {
+                gitHandler.instanciate();
+
+                // Create a test file
+                const testFile = path.join(tempDir, 'test.txt');
+                fs.writeFileSync(testFile, 'test content');
+
+                // Add and commit with message containing special characters
+                gitHandler.execCmdSync(['add', 'test.txt']);
+                gitHandler.execCmdSync(['commit', '-m', 'test: message with "quotes" and $special chars']);
+
+                // Verify the commit message
+                const message = gitHandler.execCmdSync('log -1 --pretty=%B');
+                expect(message).toBe('test: message with "quotes" and $special chars');
+            });
+
+            it('should handle paths with spaces using array syntax', () => {
+                gitHandler.instanciate();
+
+                // Create a file with spaces in the name
+                const testFile = path.join(tempDir, 'file with spaces.txt');
+                fs.writeFileSync(testFile, 'test content');
+
+                // Add and commit using array syntax
+                gitHandler.execCmdSync(['add', 'file with spaces.txt']);
+                gitHandler.execCmdSync(['commit', '-m', 'Add file with spaces']);
+
+                // Verify the file was committed
+                const files = gitHandler.execCmdSync('ls-files');
+                expect(files).toContain('file with spaces.txt');
+            });
+        });
     });
 });

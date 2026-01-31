@@ -130,23 +130,56 @@ export class GitHandler {
      * Execute a git command synchronously.
      * Always validates working tree before execution.
      * @param command - The git command to execute (without 'git' prefix)
+     *                  Can be a string or array of arguments
+     *                  Array form handles escaping automatically: ['commit', '-m', 'message with "quotes"']
      * @param options - Optional execution options
      * @returns Command output as string
      * @throws Error if not inside a valid git working tree or command fails
      */
-    execCmdSync(command: string): string {
+    execCmdSync(command: string | string[]): string {
 
         this.ensureInsideWorkingTree();
 
+        const fullCommand = Array.isArray(command)
+            ? this.buildCommandFromArray(command)
+            : `git ${command}`;
+
         try {
             const result = execSync(
-                `git ${command}`,
+                fullCommand,
                 this._execSyncOptions(true)
             ).toString().trim();
             return result;
         } catch (error) {
-            throw new Error(`Git command failed: git ${command}\n${error}`);
+            throw new Error(`Git command failed: ${fullCommand}\n${error}`);
         }
+    }
+
+    private needQuoting(arg: string): boolean {
+        return arg.includes(' ') ||
+            arg.includes(':') || 
+            arg.includes('(') || 
+            arg.includes(')');
+    }
+
+    /**
+     * Build a properly escaped git command from an array of arguments.
+     * @private
+     */
+    private buildCommandFromArray(args: string[]): string {
+        const escapedArgs = args.map(arg => {
+            // Escape double quotes and wrap in quotes
+            const escaped = arg
+                .replace(/\\/g, '\\\\')
+                .replace(/"/g, '\\"')
+                .replace(/\$/g, '\\$');
+            // Quote arguments that contain spaces or special characters
+            if (this.needQuoting(arg)) {
+                return `"${escaped}"`;
+            }
+            return escaped;
+        });
+        return `git ${escapedArgs.join(' ')}`;
     }
 
     /**

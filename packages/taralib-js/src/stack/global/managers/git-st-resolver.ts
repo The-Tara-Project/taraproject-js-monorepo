@@ -19,7 +19,7 @@ export interface DescriptorRecord {
     timestamp: string;
 }
 
-export interface ResolveInput {
+export interface ResolveQuery {
     originPath: string;
     descriptors?: DescriptorPair[];
 }
@@ -29,6 +29,7 @@ export interface ResolveResult {
     repoId: string;
     repoPath: string;
     isNew: boolean;
+    descriptors?: DescriptorPair[];
 }
 
 /**
@@ -60,7 +61,9 @@ export class GitStResolver {
      * 
      * @throws Error if matches point to different storagePaths (ambiguous)
      */
-    async resolve(input: ResolveInput): Promise<ResolveResult & { fullDescriptors: DescriptorPair[] }> {
+    async resolve(
+        input: ResolveQuery
+    ): Promise<ResolveResult> {
         const fullDescriptors = this.buildFullDescriptors(input);
         const matches = await this.scanDescriptorTapes(fullDescriptors);
 
@@ -68,7 +71,7 @@ export class GitStResolver {
             // No matches - assign new
             const { storagePath, repoId, repoPath } = await this.assignFromOriginPath(input.originPath);
 
-            return { storagePath, repoId, repoPath, isNew: true, fullDescriptors };
+            return { storagePath, repoId, repoPath, isNew: true, descriptors: fullDescriptors };
         }
 
         // Check all matches point to same storagePath
@@ -88,7 +91,7 @@ export class GitStResolver {
             repoId: firstRepoId,
             repoPath: this.builtRepoPath(firstRepoId),
             isNew: false,
-            fullDescriptors,
+            descriptors: fullDescriptors,
         };
     }
 
@@ -110,7 +113,7 @@ export class GitStResolver {
      * Build full descriptor list from input.
      * originPath is prepended as the first descriptor.
      */
-    private buildFullDescriptors(input: ResolveInput): DescriptorPair[] {
+    private buildFullDescriptors(input: ResolveQuery): DescriptorPair[] {
         const result: DescriptorPair[] = [['originPath', input.originPath]];
         if (input.descriptors) {
             result.push(...input.descriptors);

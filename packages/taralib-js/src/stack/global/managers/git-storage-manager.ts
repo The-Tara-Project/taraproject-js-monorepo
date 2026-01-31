@@ -1,4 +1,3 @@
-import { execSync } from 'child_process';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -58,7 +57,7 @@ export class GitStorageManager {
      * - Creates bootstrap commit if no commits exist
      * Idempotent operation.
      *
-     * @param repoId - Repository identifier (defaults to DEFAULT_REPO_ID)
+     * @param repoId - Repository identifier
      */
     instantiate(repoId: string): void {
         const handler = this.getGitHandler(repoId);
@@ -79,8 +78,8 @@ export class GitStorageManager {
         try {
             handler.execCmdSync('rev-parse HEAD');
         } catch {
-            handler.execCmdSync(`add tapes/${this.buildCurrentTapeName(repoId)}`);
-            handler.execCmdSync('commit -m "init: bootstrap tape"');
+            handler.execCmdSync(['add', `tapes/${this.buildCurrentTapeName(repoId)}`]);
+            handler.execCmdSync(['commit', '-m', 'init: bootstrap tape']);
         }
     }
 
@@ -114,7 +113,10 @@ export class GitStorageManager {
      * @param options - Optional message, metadata, and descriptors
      * @returns TaraGitSTLink with all retrieval information
      */
-    async commitFile(filePath: string, options?: GitStCommitOptions): Promise<TaraGitSTLink> {
+    async commitFile(
+        filePath: string,
+        options?: GitStCommitOptions
+    ): Promise<TaraGitSTLink> {
         const links = await this.commitBatch([filePath], options);
         return links[0];
     }
@@ -129,38 +131,22 @@ export class GitStorageManager {
      * @param options - Optional message, metadata, and descriptors (applied to all files)
      * @returns Array of TaraGitSTLink objects
      */
-    async commitBatch(filePaths: string[], options?: GitStCommitOptions): Promise<TaraGitSTLink[]> {
+    async commitBatch(
+        filePaths: string[],
+        options?: GitStCommitOptions
+    ): Promise<TaraGitSTLink[]> {
         if (!Array.isArray(filePaths) || filePaths.length === 0) {
             throw new Error('filePaths must be a non-empty array');
         }
 
         // Validate all paths first
-        const absolutePaths: string[] = [];
-        for (const filePath of filePaths) {
-            const absolutePath = path.resolve(filePath);
-            if (absolutePath !== filePath) {
-                throw new Error(`Path must be absolute: ${filePath}`);
-            }
-            if (!fs.existsSync(filePath)) {
-                throw new Error(`File not found: ${filePath}`);
-            }
-            absolutePaths.push(absolutePath);
-        }
+        const absolutePaths = this.validateAbsoluteFilePaths(filePaths);
 
         // Resolve each file and group by repoId
-        type ResolveResultWithDescriptors = ResolveResult & { fullDescriptors: DescriptorPair[] };
-        const repoGroups = new Map<string, Array<{ filePath: string; resolution: ResolveResultWithDescriptors }>>();
-
-        for (const filePath of absolutePaths) {
-            const resolution = await this.resolver.resolve({
-                originPath: filePath,
-                descriptors: options?.descriptors,
-            });
-
-            const group = repoGroups.get(resolution.repoId) || [];
-            group.push({ filePath, resolution });
-            repoGroups.set(resolution.repoId, group);
-        }
+        const repoGroups = await this.resolveAndGroupByRepo(
+            absolutePaths,
+            options?.descriptors
+        );
 
         // Process each repo group
         const allLinks: TaraGitSTLink[] = [];
@@ -180,7 +166,7 @@ export class GitStorageManager {
      */
     private async commitToRepo(
         repoId: string,
-        files: Array<{ filePath: string; resolution: ResolveResult & { fullDescriptors: DescriptorPair[] } }>,
+        files: Array<{ filePath: string; resolution: ResolveResult }>,
         options?: GitStCommitOptions
     ): Promise<TaraGitSTLink[]> {
         // Ensure initialized
@@ -188,15 +174,15 @@ export class GitStorageManager {
 
         const timestamp = new Date().toISOString();
         const commitMessage = options?.message ||
-            (files.length === 1
-                ? `gitst: ${path.basename(files[0].filePath)}`
-                : `gitst: batch commit (${files.length} files)`);
+            files.length === 1
+            ? `gitst: ${path.basename(files[0].filePath)}`
+            : `gitst: batch commit (${files.length} files)`;
 
         // Write descriptor records for new resolutions (after repo is instantiated)
         for (const { resolution } of files) {
             if (resolution.isNew) {
                 await this.resolver.writeDescriptorRecord({
-                    descriptors: resolution.fullDescriptors,
+                    descriptors: resolution.descriptors!,
                     storagePath: resolution.storagePath,
                     repoId,
                     timestamp,
@@ -267,12 +253,12 @@ export class GitStorageManager {
         for (const p of allPaths) {
             const fullPath = path.join(this.builtRepoPath(repoId), p);
             if (fs.existsSync(fullPath)) {
-                handler.execCmdSync(`add "${p.replace(/"/g, '\\"')}"`);
+                handler.execCmdSync(['add', p]);
             }
         }
 
         // Single commit
-        handler.execCmdSync(`commit -m "${commitMessage.replace(/"/g, '\\"')}"`);
+        handler.execCmdSync(['commit', '-m', commitMessage]);
 
         // Get commit info
         const commitHash = handler.execCmdSync('rev-parse HEAD');
@@ -302,57 +288,27 @@ export class GitStorageManager {
         descriptors?: DescriptorPair[];
         maxFileSizeBytes?: number;
     }): Promise<TaraGitSTLink[]> {
-        // Validate repo exists
         const repoAbsPath = path.resolve(externalRepoPath);
-        if (!fs.existsSync(repoAbsPath)) {
-            throw new Error(`Path does not exist: ${externalRepoPath}`);
-        }
 
-        // Check it's a git repo
-        if (!fs.existsSync(path.join(repoAbsPath, '.git'))) {
-            throw new Error(`Not a git repository: ${externalRepoPath}`);
-        }
-
-        // Get tracked files using git ls-files
-        let output: string;
-        try {
-            output = execSync('git ls-files', {
-                cwd: repoAbsPath,
-                encoding: 'utf-8',
-                stdio: ['pipe', 'pipe', 'pipe']
-            });
-        } catch (error: any) {
-            const message = error.stderr ? error.stderr.toString().trim() : error.message;
-            throw new Error(`Failed to list files: ${message}`);
-        }
-
-        const relativePaths = output.trim().split('\n').filter(Boolean);
+        // Get tracked files using GitHandler
+        const relativePaths = this.getTrackedFiles(repoAbsPath);
 
         if (relativePaths.length === 0) {
             return [];
         }
 
-        // Convert to absolute paths and filter
-        const filteredPaths = relativePaths
-            .map(rel => path.join(repoAbsPath, rel))
-            .filter(absPath => {
-                if (!fs.existsSync(absPath)) return false;
-
-                const stats = fs.statSync(absPath);
-                if (!stats.isFile()) return false;
-
-                if (options?.maxFileSizeBytes !== undefined) {
-                    return stats.size <= options.maxFileSizeBytes;
-                }
-
-                return true;
-            });
+        // Filter files by existence, type, and optional size limit
+        const filteredPaths = this.filterValidFiles(
+            relativePaths,
+            repoAbsPath,
+            options?.maxFileSizeBytes
+        );
 
         if (filteredPaths.length === 0) {
             return [];
         }
 
-        // Use existing commitBatch
+        // commitBatch
         return await this.commitBatch(filteredPaths, {
             message: options?.message || `gitst: from repo ${path.basename(repoAbsPath)}`,
             metadata: {
@@ -371,6 +327,102 @@ export class GitStorageManager {
     // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
     // MARK: Utils
     // --. -. - .- -. -.-.- . .-. - -- -- - -. . - .--.
+
+    // MARK: ...resolveAndGroupByRepo
+    /**
+     * Resolve file paths to storage paths and group by repoId.
+     * @private
+     */
+    private async resolveAndGroupByRepo(
+        filePaths: string[],
+        descriptors?: DescriptorPair[]
+    ): Promise<Map<string, Array<{
+        filePath: string;
+        resolution: ResolveResult
+    }>>> {
+        const repoGroups = new Map<string, Array<{
+            filePath: string;
+            resolution: ResolveResult
+        }>>();
+
+        for (const filePath of filePaths) {
+            const resolution = await this.resolver.resolve({
+                originPath: filePath,
+                descriptors,
+            });
+
+            const group = repoGroups.get(resolution.repoId) || [];
+            group.push({ filePath, resolution });
+            repoGroups.set(resolution.repoId, group);
+        }
+
+        return repoGroups;
+    }
+
+    // MARK: ...getTrackedFiles
+    /**
+     * Get tracked files from an external git repository using git ls-files.
+     * @private
+     * @param repoPath - Absolute path to the git repository
+     * @returns Array of relative file paths
+     * @throws Error if not a git repo or command fails
+     */
+    private getTrackedFiles(repoPath: string): string[] {
+        const handler = new GitHandler({ repoPath, options: { silent: true } });
+
+        try {
+            const output = handler.execCmdSync('ls-files');
+            return output.trim().split('\n').filter(Boolean);
+        } catch (error: any) {
+            throw new Error(`Failed to list files in ${repoPath}: ${error.message}`);
+        }
+    }
+
+    // MARK: ...validateAbsoluteFilePaths
+    /**
+     * Validate that all paths are absolute and files exist.
+     * @private
+     */
+    private validateAbsoluteFilePaths(filePaths: string[]): string[] {
+        const validated: string[] = [];
+        for (const filePath of filePaths) {
+            const absolutePath = path.resolve(filePath);
+            if (absolutePath !== filePath) {
+                throw new Error(`Path must be absolute: ${filePath}`);
+            }
+            if (!fs.existsSync(filePath)) {
+                throw new Error(`File not found: ${filePath}`);
+            }
+            validated.push(absolutePath);
+        }
+        return validated;
+    }
+
+    // MARK: ...filterValidFiles
+    /**
+     * Filter files by existence, type, and optional size limit.
+     * @private
+     */
+    private filterValidFiles(
+        relativePaths: string[],
+        basePath: string,
+        maxFileSizeBytes?: number
+    ): string[] {
+        return relativePaths
+            .map(rel => path.join(basePath, rel))
+            .filter(absPath => {
+                if (!fs.existsSync(absPath)) return false;
+
+                const stats = fs.statSync(absPath);
+                if (!stats.isFile()) return false;
+
+                if (maxFileSizeBytes !== undefined) {
+                    return stats.size <= maxFileSizeBytes;
+                }
+
+                return true;
+            });
+    }
 
     // MARK: ...calculateFileHash
     /**
@@ -503,7 +555,7 @@ export class GitStorageManager {
     /**
      * Check if a git-storage repo is initialized.
      *
-     * @param repoId - Repository identifier (defaults to DEFAULT_REPO_ID)
+     * @param repoId - Repository identifier
      * @returns true if git repo exists, false otherwise
      */
     exists(repoId: string): boolean {
