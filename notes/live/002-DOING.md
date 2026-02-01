@@ -1,3 +1,6 @@
+## DOING: always add createdAt on record metadata
+
+
 ## DOING: git-storage addressing system
 - when specifying context, it isnatural that must of the data is constant
 - example, the git repo identity

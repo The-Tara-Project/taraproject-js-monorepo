@@ -8,10 +8,12 @@ export class TapeDocumentProvider implements vscode.TextDocumentContentProvider 
 
   provideTextDocumentContent(uri: vscode.Uri): string {
     try {
-      // uri: tara-tape:///<tapeId>
-      const tapeId = uri.path.substring(1).replace('.tara.jsonl', '');
-      const tapesFolder = this.tara.global.home.getTapesPath();
-      const filePath = path.join(tapesFolder, `${tapeId}.tara.jsonl`);
+      // uri: tara-tape://<tapeRepoId>/<tapeFile>
+      const tapeRepoId = uri.authority;
+      const tapeFile = uri.path.substring(1); // remove leading '/'
+
+      const tapesFolder = this.tara.global.home.getTapesPath(tapeRepoId);
+      const filePath = path.join(tapesFolder, tapeFile);
 
       // Read raw JSONL content
       const content = fs.readFileSync(filePath, 'utf-8');

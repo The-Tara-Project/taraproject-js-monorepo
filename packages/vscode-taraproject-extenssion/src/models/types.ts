@@ -1,7 +1,8 @@
 import type { ITapeMetaRecord } from '@jose_pereiro/taralib-js';
 
 export interface TapeInfo {
-  tapeId: string;
+  tapeRepoId: string;
+  tapeFile: string;
   filePath: string;
   createdAt: Date;
   recordCount: number;

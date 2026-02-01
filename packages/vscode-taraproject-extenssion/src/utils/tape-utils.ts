@@ -2,9 +2,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
   TaraStack,
-  type ITaraRecord,
   type ITapeMetaRecord,
-  type TapeHandler,
+  TapeHandler,
 } from '@jose_pereiro/taralib-js';
 import type { TapeInfo } from '../models/types';
 
@@ -12,66 +11,52 @@ import type { TapeInfo } from '../models/types';
  * Get all tapes from the tapes folder.
  */
 export async function getAllTapes(tara: TaraStack): Promise<TapeInfo[]> {
-  const tapesFolder = tara.global.home.getTapesPath();
+  const tapeRepoIds = tara.global.tapes.list();
+  const allTapes: TapeInfo[] = [];
 
-  if (!fs.existsSync(tapesFolder)) {
-    return [];
-  }
+  for (const tapeRepoId of tapeRepoIds) {
+    const tapeFiles = tara.global.tapes.listTapeFiles(tapeRepoId);
 
-  const files = fs.readdirSync(tapesFolder);
-  const tapeFiles = files.filter(f => f.endsWith('.tara.jsonl'));
+    for (const tapeFile of tapeFiles) {
+        const tapeRepoPath = tara.global.home.getTapesPath(tapeRepoId);
+        const filePath = path.join(tapeRepoPath, tapeFile);
 
-  const tapes: TapeInfo[] = [];
+        try {
+            const tapeHandler = new TapeHandler({
+                tapeId: tapeRepoId,
+                tapePath: filePath,
+                options: { writer: tara.settings.getSetting('writer') }
+            });
 
-  for (const file of tapeFiles) {
-    const tapeId = file.replace('.tara.jsonl', '');
-    const filePath = path.join(tapesFolder, file);
+            const stats = fs.statSync(filePath);
+            
+            let metadata: ITapeMetaRecord | null = null;
+            try {
+                metadata = await tapeHandler.readMetadata();
+            } catch (error) {
+                // Metadata is optional
+            }
 
-    try {
-      const tape = tara.global.tapes.get(tapeId);
-      const stats = fs.statSync(filePath);
+            const lineCount = await tapeHandler.countLines();
+            const recordCount = lineCount > 0 ? lineCount - 1 : 0;
 
-      let metadata: ITapeMetaRecord | null = null;
-      try {
-        metadata = await tape.readMetadata();
-      } catch (error) {
-        // Metadata is optional, continue without it
-      }
-
-      const recordCount = await countRecords(tape);
-
-      tapes.push({
-        tapeId,
-        filePath,
-        createdAt: metadata?.__taratape?.createdAt ? new Date(metadata.__taratape.createdAt) : stats.birthtime,
-        recordCount,
-        fileSize: stats.size,
-        lastModified: stats.mtime,
-        metadata,
-      });
-    } catch (error) {
-      // Skip invalid tapes
-      console.warn(`Warning: Failed to read tape ${tapeId}: ${error instanceof Error ? error.message : String(error)}`);
+            allTapes.push({
+                tapeRepoId,
+                tapeFile,
+                filePath,
+                createdAt: metadata?.__taratape?.createdAt ? new Date(metadata.__taratape.createdAt) : stats.birthtime,
+                recordCount,
+                fileSize: stats.size,
+                lastModified: stats.mtime,
+                metadata,
+            });
+        } catch (error) {
+            console.warn(`Warning: Failed to read tape ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
   }
 
-  return tapes;
-}
-
-/**
- * Count records in a tape (excluding metadata).
- */
-export async function countRecords(tape: TapeHandler): Promise<number> {
-  let count = 0;
-
-  await tape.readRecords(({ parsed }) => {
-    // Skip metadata record
-    if (parsed.type !== 'taralib/tape-metadata') {
-      count++;
-    }
-  });
-
-  return count;
+  return allTapes;
 }
 
 /**

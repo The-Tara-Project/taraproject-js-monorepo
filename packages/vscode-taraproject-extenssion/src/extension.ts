@@ -35,7 +35,7 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   const openTapeCommand = vscode.commands.registerCommand('taraReader.openTape', (tapeInfo: TapeInfo) => {
-    const uri = vscode.Uri.parse(`tara-tape:///${tapeInfo.tapeId}.tara.jsonl`);
+    const uri = vscode.Uri.parse(`tara-tape://${tapeInfo.tapeRepoId}/${tapeInfo.tapeFile}`);
     vscode.window.showTextDocument(uri, { preview: false });
   });
 

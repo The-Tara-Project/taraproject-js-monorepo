@@ -252,11 +252,13 @@ async function recordEntry(
     const tape = getTape();
 
     const record = new RecordHandler({
-        type: 'tara-puller/entry',
-        timestamp: new Date().toISOString(),
-        dismissed,
-        response: response ?? null,
-        contextResults,
+        content: {
+            type: 'tara-puller/entry',
+            timestamp: new Date().toISOString(),
+            dismissed,
+            response: response ?? null,
+            contextResults,
+        }
     });
 
     tape.appendRecord(record);
