@@ -1,0 +1,20 @@
+{
+  "patterns": [
+    "password",
+    "passwd",
+    "token",
+    "secret",
+    "apikey",
+    "api_key",
+    "api-key",
+    "auth",
+    "credentials",
+    "private",
+    "ssh",
+    "curl.*-H.*Authorization",
+    "export.*TOKEN",
+    "export.*PASSWORD",
+    "export.*SECRET"
+  ],
+  "maxCommandLength": 500
+}
